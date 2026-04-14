@@ -1,0 +1,81 @@
+# =========================
+# Core API
+# =========================
+fastapi
+uvicorn[standard]
+python-dotenv
+
+# =========================
+# PDF Processing / Ingestion
+# =========================
+pymupdf                # PDF parsing (fitz)
+unstructured           # better layout parsing (optional but useful)
+pytesseract            # OCR for scanned docs
+pillow                 # image processing for OCR
+
+# =========================
+# Text Processing
+# =========================
+regex
+tqdm
+
+# =========================
+# LangChain Ecosystem
+# =========================
+langchain
+langchain-community
+langchain-core
+langchain-text-splitters
+
+# =========================
+# Embeddings + Models (HF)
+# =========================
+transformers
+sentence-transformers
+accelerate
+bitsandbytes           # for efficient LLM loading (optional GPU)
+
+# =========================
+# Vector Database
+# =========================
+qdrant-client
+
+# =========================
+# Retrieval / Search
+# =========================
+rank-bm25              # sparse retrieval
+scikit-learn           # optional utilities
+
+# =========================
+# Reranking
+# =========================
+torch                  # required for HF models
+
+# =========================
+# Evaluation
+# =========================
+ragas
+datasets
+
+# =========================
+# Observability / Tracing
+# =========================
+langsmith
+
+# =========================
+# Utilities
+# =========================
+pydantic
+numpy
+pandas
+
+# =========================
+# Async / Performance
+# =========================
+httpx
+aiofiles
+
+# =========================
+# Logging
+# =========================
+loguru
