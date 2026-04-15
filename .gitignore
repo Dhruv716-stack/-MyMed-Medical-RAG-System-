@@ -10,5 +10,5 @@ __pycache__/
 # Local environment files
 .env
 
-# Ignore local notebook scratch/testing file
-ingestion/test.ipynb
+# Ignore local notebook scratch/testing files
+test.ipynb
