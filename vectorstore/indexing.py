@@ -1,8 +1,3 @@
-# rag/vectorstore/indexing.py
-
-"""
-Index medical documents into Qdrant
-"""
 
 from typing import List
 from langchain_core.documents import Document
@@ -14,9 +9,6 @@ from vectorstore.schema import COLLECTION_NAME, get_vector_config
 
 
 def create_collection():
-    """
-    Create Qdrant collection if it does not exist
-    """
 
     client = get_qdrant_client()
 
@@ -40,9 +32,6 @@ def create_collection():
 
 
 def index_documents(docs: List[Document]):
-    """
-    Index documents into Qdrant
-    """
 
     embedding_model = embedding
     client = get_qdrant_client()
