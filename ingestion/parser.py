@@ -1,11 +1,16 @@
 
-import fitz
+try:
+    import fitz
+except Exception:
+    fitz = None
+
 import pytesseract
 from pytesseract import TesseractNotFoundError
 from PIL import Image
 import io
 import shutil
 import os
+from pypdf import PdfReader
 from langchain_core.documents import Document
 
 def is_valid_text(text: str) -> bool:
@@ -67,46 +72,61 @@ def fast_doc_loader(file_path):
 
     if file_path.lower().endswith(".pdf"):
 
-        pdf = fitz.open(file_path)
+        if fitz is not None:
+            pdf = fitz.open(file_path)
 
-        for page_num in range(len(pdf)):
+            for page_num in range(len(pdf)):
 
-            page = pdf.load_page(page_num)
+                page = pdf.load_page(page_num)
 
-            text = page.get_text("text")
+                text = page.get_text("text")
 
-            use_ocr = False
+                use_ocr = False
 
-            if not text or len(text.strip()) < 200:
-                use_ocr = True
-            elif not is_valid_text(text):
-                use_ocr = True
+                if not text or len(text.strip()) < 200:
+                    use_ocr = True
+                elif not is_valid_text(text):
+                    use_ocr = True
 
-            if use_ocr and ocr_enabled:
-                pix = page.get_pixmap(dpi=300)
-                img = Image.open(io.BytesIO(pix.tobytes()))
-                ocr_text = _safe_ocr(img)
+                if use_ocr and ocr_enabled:
+                    pix = page.get_pixmap(dpi=300)
+                    img = Image.open(io.BytesIO(pix.tobytes()))
+                    ocr_text = _safe_ocr(img)
 
-                if ocr_text.strip():
-                    text = ocr_text
-                    doc_type = "ocr"
+                    if ocr_text.strip():
+                        text = ocr_text
+                        doc_type = "ocr"
+                    else:
+                        doc_type = "text_fallback"
+
+                elif use_ocr and not ocr_enabled:
+                    doc_type = "ocr_unavailable"
                 else:
-                    doc_type = "text_fallback"
+                    doc_type = "text"
 
-            elif use_ocr and not ocr_enabled:
-                doc_type = "ocr_unavailable"
-            else:
-                doc_type = "text"
+                yield Document(
+                    page_content=text,
+                    metadata={
+                        "page": page_num + 1,
+                        "source": file_path,
+                        "type": doc_type
+                    }
+                )
 
+            return
+
+        # Fallback when PyMuPDF cannot be loaded (e.g. blocked DLL policy).
+        reader = PdfReader(file_path)
+        for page_num, page in enumerate(reader.pages, start=1):
+            text = page.extract_text() or ""
             yield Document(
                 page_content=text,
                 metadata={
-                    "page": page_num + 1,
+                    "page": page_num,
                     "source": file_path,
-                    "type": doc_type
+                    "type": "text_no_fitz"
                 }
             )
-
         return
 
     raise ValueError("Unsupported file type")
