@@ -12,3 +12,6 @@ __pycache__/
 
 # Ignore local notebook scratch/testing files
 test.ipynb
+
+# Ignore package marker file in pre_retrieval
+pre_retrieval/__init__.py
