@@ -58,4 +58,6 @@ def rewrite_query(query: str) -> str:
         }
     )
 
-    return rewritten_query.strip()
+    final_query=rewritten_query.strip()
+
+    return final_query

@@ -1,14 +1,11 @@
 
-from qdrant_client.http.models import (
-    Distance,
-    VectorParams
-)
+from qdrant_client.models import VectorParams, Distance
 
 COLLECTION_NAME = "medical_rag_documents"
 
-
-def get_vector_config(embedding_dim: int):
+def get_vector_config(dim: int):
+    """Returns vector configuration for the collection."""
     return VectorParams(
-        size=embedding_dim,
+        size=dim,
         distance=Distance.COSINE
     )

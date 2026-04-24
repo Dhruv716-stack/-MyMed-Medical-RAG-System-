@@ -1,4 +1,3 @@
-
 import fitz
 import pytesseract
 from pytesseract import TesseractNotFoundError
