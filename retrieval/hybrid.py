@@ -2,25 +2,10 @@ from typing import List
 
 from langchain_core.documents import Document
 from langchain_community.retrievers import BM25Retriever
-from langchain_qdrant import QdrantVectorStore
-
-from vectorstore.qdrant_client import get_qdrant_client
-from vectorstore.schema import COLLECTION_NAME
-from embeddings.model import embedding
-
+from vectorstore.store import get_vectorstore
 
 VECTOR_K = 4
 BM25_K = 6
-
-
-def get_vectorstore():
-
-    return QdrantVectorStore(
-        client=get_qdrant_client(),
-        collection_name=COLLECTION_NAME,
-        embedding=embedding,
-    )
-
 
 def build_bm25_retriever(docs: List[Document]):
 
