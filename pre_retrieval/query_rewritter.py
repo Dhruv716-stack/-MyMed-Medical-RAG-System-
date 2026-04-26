@@ -1,15 +1,7 @@
 
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_core.output_parsers import StrOutputParser
-from langchain_huggingface import ChatHuggingFace,HuggingFaceEndpoint
-
-llm=HuggingFaceEndpoint(
-    repo_id="Qwen/Qwen2.5-7B-Instruct",
-    task="text-generation",
-    temperature=0.1
-    
-)
-model=ChatHuggingFace(llm=llm)
+from generation.retrieve_model import model
 
 
 # Prompt template for rewriting

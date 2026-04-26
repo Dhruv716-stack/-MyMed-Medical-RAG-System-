@@ -17,16 +17,7 @@ Query:
 
 from langchain_core.prompts import PromptTemplate
 from langchain_core.output_parsers import StrOutputParser
-
-from langchain_huggingface import ChatHuggingFace,HuggingFaceEndpoint
-
-llm=HuggingFaceEndpoint(
-    repo_id="Qwen/Qwen2.5-7B-Instruct",
-    task="text-generation",
-    temperature=0.5
-    
-)
-model=ChatHuggingFace(llm=llm)
+from generation.retrieve_model import model
 
 
 prompt = PromptTemplate.from_template(AMBIGUITY_PROMPT)
