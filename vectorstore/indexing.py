@@ -13,6 +13,14 @@ def create_collection():
     # Reuse embedding object created in earlier embedding cell.
     dim = len(embedding.embed_query("test"))
     collections = [c.name for c in client.get_collections().collections]
+    
+    if COLLECTION_NAME in collections:
+
+        client.delete_collection(
+            collection_name=COLLECTION_NAME
+        )
+
+        print(f"Deleted old collection: {COLLECTION_NAME}")
 
     if COLLECTION_NAME not in collections:
         client.create_collection(
