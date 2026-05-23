@@ -21,6 +21,7 @@ def create_collection():
         )
 
         print(f"Deleted old collection: {COLLECTION_NAME}")
+        collections = []
 
     if COLLECTION_NAME not in collections:
         client.create_collection(

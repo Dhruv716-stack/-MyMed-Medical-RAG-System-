@@ -85,6 +85,10 @@ class MedicalRAGPipeline:
 
         self.final_answer = ""
 
+        # Track whether vector store is already built for current documents.
+        self._index_built = False
+        self._indexed_file_path = None
+
     # =====================================================
     # LOGGER
     # =====================================================
@@ -98,7 +102,7 @@ class MedicalRAGPipeline:
     # INGESTION
     # =====================================================
 
-    def ingest(self, file_path: str):
+    def ingest(self, file_path: str, force_reindex: bool = False):
 
         self.log("\n" + "=" * 70)
         self.log("STEP 1 — DOCUMENT INGESTION")
@@ -122,12 +126,17 @@ class MedicalRAGPipeline:
         )
 
         self.log(f"Generated Chunks: {len(self.chunks)}")
-        
-        create_collection()
-        # Indexing
-        index_documents(self.chunks)
 
-        self.log("Vector store indexing completed.")
+        # Build vector store only once unless explicitly forced.
+        if force_reindex or not self._index_built or self._indexed_file_path != file_path:
+            create_collection()
+            # Indexing
+            index_documents(self.chunks)
+            self._index_built = True
+            self._indexed_file_path = file_path
+            self.log("Vector store indexing completed.")
+        else:
+            self.log("Vector store already built. Skipping re-indexing.")
 
         return self
 
@@ -366,12 +375,13 @@ class MedicalRAGPipeline:
     def run(
         self,
         file_path: str,
-        query: str
+        query: str,
+        force_reindex: bool = False
     ) -> Dict:
 
         (
             self
-            .ingest(file_path)
+            .ingest(file_path, force_reindex=force_reindex)
             .prepare_query(query)
             .retrieve()
             .post_retrieval()

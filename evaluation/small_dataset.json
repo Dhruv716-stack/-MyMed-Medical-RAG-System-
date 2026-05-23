@@ -1,0 +1,82 @@
+[
+  {
+    "question": "What is the primary goal of WHO drinking-water guidelines?",
+    "ground_truth": "The primary goal of WHO drinking-water guidelines is to protect public health associated with drinking-water quality."
+  },
+  {
+    "question": "Why is safe drinking-water important for public health?",
+    "ground_truth": "Safe drinking-water is important because it sustains life, prevents disease, and supports overall public health and development."
+  },
+  {
+    "question": "How does chlorination help make drinking-water safe?",
+    "ground_truth": "Chlorination helps disinfect water by eliminating harmful microorganisms and reducing the risk of waterborne diseases."
+  },
+  {
+    "question": "What is the role of operational monitoring in water systems?",
+    "ground_truth": "Operational monitoring ensures that treatment processes and control measures are functioning effectively within safe operational limits."
+  },
+  {
+    "question": "Why is source water protection important in water safety planning?",
+    "ground_truth": "Source water protection prevents contamination before water reaches treatment facilities, improving overall drinking-water safety."
+  },
+  {
+    "question": "What are microbial hazards in drinking-water?",
+    "ground_truth": "Microbial hazards are disease-causing microorganisms such as bacteria, viruses, and protozoa that contaminate water."
+  },
+  {
+    "question": "How can contaminated drinking-water affect human health?",
+    "ground_truth": "Contaminated drinking-water can spread infectious diseases, cause gastrointestinal illness, and expose people to harmful chemicals."
+  },
+  {
+    "question": "Compare filtration and ultraviolet disinfection in water treatment.",
+    "ground_truth": "Filtration removes particles and microorganisms physically, while ultraviolet disinfection uses UV light to inactivate microorganisms."
+  },
+  {
+    "question": "Why is surveillance necessary in water quality management?",
+    "ground_truth": "Surveillance helps monitor drinking-water safety, detect contamination risks, and ensure regulatory compliance."
+  },
+  {
+    "question": "What is a water safety plan and why is it useful?",
+    "ground_truth": "A water safety plan is a preventive risk management approach that ensures safe drinking-water from source to consumer."
+  },
+  {
+    "question": "How does palliative care improve quality of life for patients?",
+    "ground_truth": "Palliative care improves quality of life by relieving pain, reducing suffering, and providing emotional and psychological support."
+  },
+  {
+    "question": "What is patient autonomy in healthcare?",
+    "ground_truth": "Patient autonomy is the right of patients to make informed decisions about their own medical treatment and care."
+  },
+  {
+    "question": "Why is communication important in end-of-life care?",
+    "ground_truth": "Communication helps patients, families, and healthcare providers make informed and compassionate treatment decisions."
+  },
+  {
+    "question": "What is the difference between withholding and withdrawing life-sustaining treatment?",
+    "ground_truth": "Withholding treatment means not starting a treatment, while withdrawing treatment means stopping an ongoing life-sustaining intervention."
+  },
+  {
+    "question": "Why are ethical principles important in end-of-life care?",
+    "ground_truth": "Ethical principles guide healthcare decisions by promoting autonomy, beneficence, non-maleficence, and justice."
+  },
+  {
+    "question": "How does hospice care support terminally ill patients?",
+    "ground_truth": "Hospice care provides comfort-focused medical, emotional, and supportive care for patients nearing the end of life."
+  },
+  {
+    "question": "What is informed consent in healthcare?",
+    "ground_truth": "Informed consent is the voluntary agreement to treatment after understanding its risks, benefits, and alternatives."
+  },
+  {
+    "question": "Why is pain management essential in palliative care?",
+    "ground_truth": "Pain management is essential because it improves patient comfort and reduces suffering in serious illness."
+  },
+  {
+    "question": "How does shared decision-making benefit patients and clinicians?",
+    "ground_truth": "Shared decision-making improves treatment choices by involving both patients and clinicians in healthcare decisions."
+  },
+  {
+    "question": "What is compassionate care in healthcare?",
+    "ground_truth": "Compassionate care involves empathy, emotional support, dignity, and respect toward patients and families."
+  }
+]
