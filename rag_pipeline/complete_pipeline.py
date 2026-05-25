@@ -1,8 +1,10 @@
 # pipeline.py
 
 from typing import Dict
+import traceback
+import time
 
-from langchain_core.documents import Document
+from langsmith import trace, traceable
 
 
 # =========================================================
@@ -18,8 +20,10 @@ from ingestion.chunker import medical_rag_chunking
 # VECTOR STORE
 # =========================================================
 
-from vectorstore.indexing import index_documents
-from vectorstore.indexing import create_collection
+from vectorstore.indexing import (
+    index_documents,
+    create_collection
+)
 
 
 # =========================================================
@@ -27,8 +31,14 @@ from vectorstore.indexing import create_collection
 # =========================================================
 
 from pre_retrieval.query_rewritter import rewrite_query
-from pre_retrieval.multi_query import generate_multi_queries
-from pre_retrieval.ambiguity_detector import is_ambiguous_llm
+
+from pre_retrieval.multi_query import (
+    generate_multi_queries
+)
+
+from pre_retrieval.ambiguity_detector import (
+    is_ambiguous_llm
+)
 
 
 # =========================================================
@@ -36,7 +46,9 @@ from pre_retrieval.ambiguity_detector import is_ambiguous_llm
 # =========================================================
 
 from retrieval.hybrid import hybrid_retrieve
+
 from retrieval.mmr import get_mmr_retriever
+
 from retrieval.reranker import rerank_documents
 
 
@@ -45,7 +57,10 @@ from retrieval.reranker import rerank_documents
 # =========================================================
 
 from post_retrieval.filter import filter_documents
-from post_retrieval.contextual_compression import compress_documents
+
+from post_retrieval.contextual_compression import (
+    compress_documents
+)
 
 
 # =========================================================
@@ -53,6 +68,7 @@ from post_retrieval.contextual_compression import compress_documents
 # =========================================================
 
 from generation.generate import generate_answer
+
 from generation.structured_output import clean_output
 
 
@@ -62,12 +78,15 @@ from generation.structured_output import clean_output
 
 class MedicalRAGPipeline:
 
-    def __init__(self, verbose: bool = True):
+    def __init__(
+        self,
+        verbose: bool = True
+    ):
 
         self.verbose = verbose
 
         # -----------------------------------
-        # Storage Variables
+        # STORAGE
         # -----------------------------------
 
         self.raw_docs = []
@@ -78,12 +97,22 @@ class MedicalRAGPipeline:
 
         self.hybrid_results = []
         self.mmr_results = []
+
         self.reranked_docs = []
 
         self.filtered_docs = []
         self.compressed_docs = []
 
         self.final_answer = ""
+
+        # -----------------------------------
+        # INDEX CACHE
+        # -----------------------------------
+
+        self._index_built = False
+
+        self._indexed_file_path = None
+
 
     # =====================================================
     # LOGGER
@@ -94,303 +123,485 @@ class MedicalRAGPipeline:
         if self.verbose:
             print(message)
 
+
     # =====================================================
     # INGESTION
     # =====================================================
 
-    def ingest(self, file_path: str):
+    @traceable(name="Document Ingestion")
 
-        self.log("\n" + "=" * 70)
-        self.log("STEP 1 — DOCUMENT INGESTION")
-        self.log("=" * 70)
+    def ingest(
+        self,
+        file_path: str,
+        force_reindex: bool = False
+    ):
 
-        # Parse document
-        self.raw_docs = list(fast_doc_loader(file_path))
+        with trace("Ingestion") as rt:
 
-        self.log(f"\nLoaded Documents: {len(self.raw_docs)}")
+            start = time.time()
 
-        # Clean text
-        self.cleaned_docs = clean_documents(
-            self.raw_docs
-        )
+            self.log("\n" + "=" * 70)
+            self.log("STEP 1 — DOCUMENT INGESTION")
+            self.log("=" * 70)
 
-        self.log("Document cleaning completed.")
+            # -----------------------------------
+            # LOAD
+            # -----------------------------------
 
-        # Chunking
-        self.chunks = medical_rag_chunking(
-            self.cleaned_docs
-        )
-
-        self.log(f"Generated Chunks: {len(self.chunks)}")
-        
-        create_collection()
-        # Indexing
-        index_documents(self.chunks)
-
-        self.log("Vector store indexing completed.")
-
-        return self
-
-    # =====================================================
-    # QUERY TRANSFORMATION
-    # =====================================================
-
-    def prepare_query(self, query: str):
-
-        self.log("\n" + "=" * 70)
-        self.log("STEP 2 — QUERY TRANSFORMATION")
-        self.log("=" * 70)
-
-        # Rewrite query
-        rewritten_query = rewrite_query(query)
-
-        self.log(f"\nRewritten Query:\n{rewritten_query}")
-
-        queries = [rewritten_query]
-
-        # Multi-query generation
-        if is_ambiguous_llm(rewritten_query):
-
-            self.log("\nAmbiguous query detected.")
-            self.log("Generating multiple retrieval queries...")
-
-            multi_queries = generate_multi_queries(
-                rewritten_query
+            self.raw_docs = list(
+                fast_doc_loader(file_path)
             )
 
-            cleaned_queries = []
+            self.log(
+                f"\nLoaded Documents: {len(self.raw_docs)}"
+            )
 
-            for q in multi_queries:
+            # -----------------------------------
+            # CLEAN
+            # -----------------------------------
 
-                q = q.strip()
+            self.cleaned_docs = clean_documents(
+                self.raw_docs
+            )
 
-                if q and q not in cleaned_queries:
-                    cleaned_queries.append(q)
+            self.log("Cleaning completed.")
 
-            queries.extend(cleaned_queries)
+            # -----------------------------------
+            # CHUNK
+            # -----------------------------------
 
-        # Remove duplicates
-        queries = list(dict.fromkeys(queries))
+            self.chunks = medical_rag_chunking(
+                self.cleaned_docs
+            )
 
-        self.queries = queries
+            self.log(
+                f"Generated Chunks: {len(self.chunks)}"
+            )
 
-        self.log("\nFinal Queries:\n")
+            # -----------------------------------
+            # INDEX
+            # -----------------------------------
 
-        for i, q in enumerate(queries, 1):
-            self.log(f"{i}. {q}")
+            if (
+                force_reindex
+                or not self._index_built
+                or self._indexed_file_path != file_path
+            ):
+
+                create_collection()
+
+                index_documents(self.chunks)
+
+                self._index_built = True
+
+                self._indexed_file_path = file_path
+
+                self.log(
+                    "Vector indexing completed."
+                )
+
+            else:
+
+                self.log(
+                    "Skipping indexing (cached)."
+                )
+
+            rt.add_metadata({
+
+                "documents":
+                len(self.raw_docs),
+
+                "chunks":
+                len(self.chunks),
+
+                "cached":
+                self._index_built
+            })
+
+            rt.add_outputs({
+
+                "latency":
+                round(time.time() - start, 2)
+            })
 
         return self
+
+
+    # =====================================================
+    # QUERY PREPARATION
+    # =====================================================
+
+    @traceable(name="Query Preparation")
+
+    def prepare_query(
+        self,
+        query: str
+    ):
+
+        with trace("Query Preparation") as rt:
+
+            self.log("\n" + "=" * 70)
+            self.log("STEP 2 — QUERY PREPARATION")
+            self.log("=" * 70)
+
+            rewritten_query = rewrite_query(query)
+
+            queries = [rewritten_query]
+
+            # -----------------------------------
+            # MULTI QUERY
+            # -----------------------------------
+
+            if is_ambiguous_llm(rewritten_query):
+
+                multi_queries = generate_multi_queries(
+                    rewritten_query
+                )
+
+                cleaned_queries = []
+
+                for q in multi_queries:
+
+                    q = q.strip()
+
+                    if q and q not in cleaned_queries:
+
+                        cleaned_queries.append(q)
+
+                queries.extend(cleaned_queries)
+
+            queries = list(dict.fromkeys(queries))
+
+            self.queries = queries
+
+            self.log("\nGenerated Queries:\n")
+
+            for i, q in enumerate(queries, 1):
+
+                self.log(f"{i}. {q}")
+
+            rt.add_metadata({
+
+                "query":
+                query,
+
+                "rewritten_query":
+                rewritten_query,
+
+                "queries":
+                queries
+            })
+
+        return self
+
 
     # =====================================================
     # RETRIEVAL
     # =====================================================
 
+    @traceable(name="Retrieval")
+
     def retrieve(self):
 
-        self.log("\n" + "=" * 70)
-        self.log("STEP 3 — HYBRID RETRIEVAL")
-        self.log("=" * 70)
+        with trace("Hybrid + MMR + Reranking") as rt:
 
-        all_results = []
+            self.log("\n" + "=" * 70)
+            self.log("STEP 3 — RETRIEVAL")
+            self.log("=" * 70)
 
-        # -----------------------------------
-        # HYBRID RETRIEVAL
-        # -----------------------------------
+            all_results = []
 
-        self.log("\nRunning hybrid retrieval...")
+            # -----------------------------------
+            # HYBRID
+            # -----------------------------------
 
-        for query in self.queries:
+            for query in self.queries:
 
-            results = hybrid_retrieve(
-                query=query,
-                docs=self.chunks
+                results = hybrid_retrieve(
+
+                    query=query,
+
+                    docs=self.chunks
+                )
+
+                all_results.extend(results)
+
+            # -----------------------------------
+            # REMOVE DUPLICATES
+            # -----------------------------------
+
+            seen = set()
+
+            unique_docs = []
+
+            for doc in all_results:
+
+                content = doc.page_content.strip()
+
+                if content not in seen:
+
+                    unique_docs.append(doc)
+
+                    seen.add(content)
+
+            self.hybrid_results = unique_docs
+
+            # -----------------------------------
+            # MMR
+            # -----------------------------------
+
+            mmr_retriever = get_mmr_retriever()
+
+            self.mmr_results = mmr_retriever.invoke(
+                self.queries[0]
             )
 
-            all_results.extend(results)
+            # -----------------------------------
+            # COMBINE
+            # -----------------------------------
 
-        self.hybrid_results = all_results
+            combined = (
 
-        self.log(
-            f"Retrieved Documents: {len(all_results)}"
-        )
+                self.hybrid_results +
 
-        # -----------------------------------
-        # REMOVE DUPLICATES
-        # -----------------------------------
+                self.mmr_results
+            )
 
-        unique_docs = []
-        seen = set()
+            final_docs = []
 
-        for doc in all_results:
+            seen = set()
 
-            content = doc.page_content.strip()
+            for doc in combined:
 
-            if content not in seen:
-                unique_docs.append(doc)
-                seen.add(content)
+                content = doc.page_content.strip()
 
-        self.log(
-            f"Unique Retrieved Docs: {len(unique_docs)}"
-        )
+                if content not in seen:
 
-        # -----------------------------------
-        # MMR
-        # -----------------------------------
+                    final_docs.append(doc)
 
-        self.log("\nApplying MMR diversification...")
+                    seen.add(content)
 
-        mmr_retriever = get_mmr_retriever()
+            # -----------------------------------
+            # RERANK
+            # -----------------------------------
 
-        self.mmr_results = mmr_retriever.invoke(
-            self.queries[0]
-        )
+            self.reranked_docs = rerank_documents(
 
-        self.log(
-            f"MMR Results: {len(self.mmr_results)}"
-        )
+                query=self.queries[0],
 
-        # -----------------------------------
-        # COMBINE RESULTS
-        # -----------------------------------
+                docs=final_docs,
 
-        combined_docs = unique_docs + self.mmr_results
+                top_k=5
+            )
 
-        deduplicated_docs = []
-        seen = set()
+            self.log(
+                f"Final Retrieved Docs: {len(self.reranked_docs)}"
+            )
 
-        for doc in combined_docs:
+            rt.add_metadata({
 
-            content = doc.page_content.strip()
+                "hybrid_docs":
+                len(self.hybrid_results),
 
-            if content not in seen:
-                deduplicated_docs.append(doc)
-                seen.add(content)
+                "mmr_docs":
+                len(self.mmr_results),
 
-        self.log(
-            f"Combined Retrieval Docs: {len(deduplicated_docs)}"
-        )
+                "reranked_docs":
+                len(self.reranked_docs)
+            })
 
-        # -----------------------------------
-        # RERANKER
-        # -----------------------------------
+            rt.add_outputs({
 
-        self.log("\nApplying reranker...")
+                "retrieved_docs": [
 
-        self.reranked_docs = rerank_documents(
-            query=self.queries[0],
-            docs=deduplicated_docs,
-            top_k=5
-        )
+                    d.page_content[:200]
 
-        self.log(
-            f"Top Reranked Docs: {len(self.reranked_docs)}"
-        )
+                    for d in self.reranked_docs
+                ]
+            })
 
         return self
+
 
     # =====================================================
     # POST RETRIEVAL
     # =====================================================
 
+    @traceable(name="Post Retrieval")
+
     def post_retrieval(self):
 
-        self.log("\n" + "=" * 70)
-        self.log("STEP 4 — POST RETRIEVAL")
-        self.log("=" * 70)
+        with trace("Filtering + Compression") as rt:
 
-        # -----------------------------------
-        # FILTERING
-        # -----------------------------------
+            self.log("\n" + "=" * 70)
+            self.log("STEP 4 — POST RETRIEVAL")
+            self.log("=" * 70)
 
-        self.filtered_docs = filter_documents(
-            self.reranked_docs
-        )
+            # -----------------------------------
+            # FILTER
+            # -----------------------------------
 
-        self.log(
-            f"\nFiltered Docs: {len(self.filtered_docs)}"
-        )
+            self.filtered_docs = filter_documents(
+                self.reranked_docs
+            )
 
-        # -----------------------------------
-        # CONTEXT COMPRESSION
-        # -----------------------------------
+            # -----------------------------------
+            # COMPRESS
+            # -----------------------------------
 
-        self.compressed_docs = compress_documents(
-            query=self.queries[0],
-            retriever_func=lambda q, _: self.filtered_docs,
-            docs=self.filtered_docs
-        )
+            self.compressed_docs = compress_documents(
 
-        self.log(
-            f"Compressed Docs: {len(self.compressed_docs)}"
-        )
+                query=self.queries[0],
+
+                retriever_func=lambda q, _: (
+                    self.filtered_docs
+                ),
+
+                docs=self.filtered_docs
+            )
+
+            self.log(
+                f"Compressed Docs: {len(self.compressed_docs)}"
+            )
+
+            rt.add_metadata({
+
+                "filtered_docs":
+                len(self.filtered_docs),
+
+                "compressed_docs":
+                len(self.compressed_docs)
+            })
 
         return self
+
 
     # =====================================================
     # GENERATION
     # =====================================================
 
+    @traceable(name="Generation")
+
     def generate(self):
 
-        self.log("\n" + "=" * 70)
-        self.log("STEP 5 — GROUNDED GENERATION")
-        self.log("=" * 70)
+        with trace("Grounded Generation") as rt:
 
-        # -----------------------------------
-        # GENERATE RAW ANSWER
-        # -----------------------------------
+            self.log("\n" + "=" * 70)
+            self.log("STEP 5 — GENERATION")
+            self.log("=" * 70)
 
-        raw_answer = generate_answer(
-            query=self.queries[0],
-            docs=self.compressed_docs
-        )
+            raw_answer = generate_answer(
 
-        self.log("\nRaw answer generated.")
+                query=self.queries[0],
 
-        # -----------------------------------
-        # CLEAN + STRUCTURE OUTPUT
-        # -----------------------------------
+                docs=self.compressed_docs
+            )
 
-        self.final_answer = clean_output(
-            raw_answer
-        )
+            self.final_answer = clean_output(
+                raw_answer
+            )
 
-        self.log("Structured formatting applied.")
+            rt.add_outputs({
+
+                "answer":
+                self.final_answer
+            })
 
         return self
 
+
     # =====================================================
-    # COMPLETE PIPELINE
+    # FULL PIPELINE
     # =====================================================
+
+    @traceable(name="Medical RAG Pipeline")
 
     def run(
         self,
         file_path: str,
-        query: str
+        query: str,
+        force_reindex: bool = False,
+        debug: bool = False
     ) -> Dict:
 
-        (
-            self
-            .ingest(file_path)
-            .prepare_query(query)
-            .retrieve()
-            .post_retrieval()
-            .generate()
-        )
+        try:
 
-        self.log("\n" + "=" * 70)
-        self.log("MEDICAL RAG PIPELINE COMPLETED")
-        self.log("=" * 70)
+            with trace("Full Pipeline") as rt:
 
-        return {
+                start = time.time()
 
-            "query": query,
+                (
+                    self
 
-            "generated_queries": self.queries,
+                    .ingest(
+                        file_path,
+                        force_reindex
+                    )
 
-            "retrieved_docs": self.reranked_docs,
+                    .prepare_query(query)
 
-            "compressed_docs": self.compressed_docs,
+                    .retrieve()
 
-            "answer": self.final_answer
-        }
+                    .post_retrieval()
+
+                    .generate()
+                )
+
+                rt.add_metadata({
+
+                    "query":
+                    query
+                })
+
+                rt.add_outputs({
+
+                    "latency":
+                    round(time.time() - start, 2),
+
+                    "answer":
+                    self.final_answer
+                })
+
+            self.log("\n" + "=" * 70)
+            self.log("PIPELINE COMPLETED")
+            self.log("=" * 70)
+
+            # -----------------------------------
+            # UI MODE
+            # -----------------------------------
+
+            if not debug:
+
+                return self.final_answer
+
+            # -----------------------------------
+            # DEBUG MODE
+            # -----------------------------------
+
+            return {
+
+                "query":
+                query,
+
+                "generated_queries":
+                self.queries,
+
+                "retrieved_docs":
+                self.reranked_docs,
+
+                "compressed_docs":
+                self.compressed_docs,
+
+                "answer":
+                self.final_answer
+            }
+
+        except Exception as e:
+
+            traceback.print_exc()
+
+            return {
+
+                "error":
+                str(e)
+            }
