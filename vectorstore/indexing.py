@@ -22,14 +22,13 @@ def create_collection():
 
         print(f"Deleted old collection: {COLLECTION_NAME}")
 
-    if COLLECTION_NAME not in collections:
+ 
         client.create_collection(
             collection_name=COLLECTION_NAME,
-            vectors_config=get_vector_config(dim)
-        )
+            vectors_config=get_vector_config(dim))
+        
         print(f"Created collection: {COLLECTION_NAME}")
-    else:
-        print(f"Collection already exists: {COLLECTION_NAME}")
+    
 
 def index_documents(docs: List[Document]):
     client = get_qdrant_client()
