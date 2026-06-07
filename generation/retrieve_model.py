@@ -1,8 +1,14 @@
-from langchain_huggingface import HuggingFaceEndpoint,ChatHuggingFace
-llm=HuggingFaceEndpoint(
-    repo_id="Qwen/Qwen2.5-7B-Instruct",
-    task="text-generation",
-    temperature=0.2
-    
+# generation/retrieve_model.py
+
+import os
+from dotenv import load_dotenv
+from langchain_groq import ChatGroq
+
+load_dotenv()
+
+model = ChatGroq(
+    model="llama-3.1-8b-instant",  
+    temperature=0.2,
+    max_tokens=1024,
+    api_key=os.getenv("GROQ_API_KEY"),
 )
-model=ChatHuggingFace(llm=llm)

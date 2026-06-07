@@ -460,6 +460,10 @@ class MedicalRAGPipeline:
                 docs=self.filtered_docs
             )
 
+            if len(self.compressed_docs) < 3:
+                self.log("Compression returned < 3 docs, falling back to filtered_docs[:5]")
+                self.compressed_docs = self.filtered_docs[:5]
+
             self.log(
                 f"Compressed Docs: {len(self.compressed_docs)}"
             )
