@@ -5,6 +5,7 @@ import traceback
 import time
 
 from langsmith import trace, traceable
+from sqlalchemy import false
 
 
 # =========================================================
@@ -22,7 +23,8 @@ from ingestion.chunker import medical_rag_chunking
 
 from vectorstore.indexing import (
     index_documents,
-    create_collection
+    create_collection,
+    needs_reindex
 )
 
 
@@ -84,6 +86,7 @@ class MedicalRAGPipeline:
     ):
 
         self.verbose = verbose
+        self.active_file = None
 
         # -----------------------------------
         # STORAGE
@@ -104,16 +107,6 @@ class MedicalRAGPipeline:
         self.compressed_docs = []
 
         self.final_answer = ""
-
-        # -----------------------------------
-        # INDEX CACHE
-        # -----------------------------------
-
-        self._index_built = False
-
-        self._indexed_file_path = None
-
-
     # =====================================================
     # LOGGER
     # =====================================================
@@ -177,34 +170,42 @@ class MedicalRAGPipeline:
             self.log(
                 f"Generated Chunks: {len(self.chunks)}"
             )
-
+            
             # -----------------------------------
-            # INDEX
+            # SMART INDEXING
             # -----------------------------------
+            
+            
+            should_reindex = (
+               force_reindex
+               or needs_reindex(file_path)
+            )
 
-            if (
-                force_reindex
-                or not self._index_built
-                or self._indexed_file_path != file_path
-            ):
+            if should_reindex:
 
-                create_collection()
+               self.log(
+              "\nIndex rebuild required..."
+               )
 
-                index_documents(self.chunks)
+               create_collection(
+                 recreate=False
+               )
 
-                self._index_built = True
-
-                self._indexed_file_path = file_path
-
-                self.log(
-                    "Vector indexing completed."
+               index_documents(
+                  docs=self.chunks,
+                  file_path=file_path
                 )
 
+               self.log(
+               "Vector indexing completed."
+               )
+               
             else:
 
-                self.log(
-                    "Skipping indexing (cached)."
-                )
+              self.log(
+               "Using existing index."
+              )
+
 
             rt.add_metadata({
 
@@ -214,8 +215,8 @@ class MedicalRAGPipeline:
                 "chunks":
                 len(self.chunks),
 
-                "cached":
-                self._index_built
+                "smart_indexing":
+                True
             })
 
             rt.add_outputs({
@@ -279,7 +280,7 @@ class MedicalRAGPipeline:
             for i, q in enumerate(queries, 1):
 
                 self.log(f"{i}. {q}")
-
+            
             rt.add_metadata({
 
                 "query":
@@ -293,8 +294,8 @@ class MedicalRAGPipeline:
             })
 
         return self
-
-
+    
+       
     # =====================================================
     # RETRIEVAL
     # =====================================================
@@ -302,6 +303,10 @@ class MedicalRAGPipeline:
     @traceable(name="Retrieval")
 
     def retrieve(self):
+        print(
+            "Chunks available:",
+            len(self.chunks)
+        )
 
         with trace("Hybrid + MMR + Reranking") as rt:
 
@@ -310,11 +315,10 @@ class MedicalRAGPipeline:
             self.log("=" * 70)
 
             all_results = []
-
+           
             # -----------------------------------
             # HYBRID
             # -----------------------------------
-
             for query in self.queries:
 
                 results = hybrid_retrieve(
@@ -513,30 +517,40 @@ class MedicalRAGPipeline:
     # =====================================================
     # FULL PIPELINE
     # =====================================================
-
+    
     @traceable(name="Medical RAG Pipeline")
-
+    
     def run(
-        self,
-        file_path: str,
-        query: str,
-        force_reindex: bool = False,
-        debug: bool = False
-    ) -> Dict:
-
+    self,
+    query: str,
+    file_path: str = None,
+    force_reindex: bool = False,
+    debug: bool = False
+    ):
         try:
-
+            
             with trace("Full Pipeline") as rt:
-
                 start = time.time()
+
+            # -----------------------------------
+            # OPTIONAL INGESTION
+            # -----------------------------------
+
+                if file_path:
+                    if self.active_file != file_path:
+                        if force_reindex or needs_reindex(file_path):
+                            self.ingest(
+                            file_path=file_path,
+                            force_reindex=force_reindex
+                    )
+                    self.active_file = file_path
+
+            # -----------------------------------
+            # QUERY PIPELINE
+            # -----------------------------------
 
                 (
                     self
-
-                    .ingest(
-                        file_path,
-                        force_reindex
-                    )
 
                     .prepare_query(query)
 
@@ -549,38 +563,44 @@ class MedicalRAGPipeline:
 
                 rt.add_metadata({
 
-                    "query":
-                    query
+                   "query":
+                    query,
+
+                   "ingested":
+                    file_path is not None
                 })
 
                 rt.add_outputs({
 
-                    "latency":
-                    round(time.time() - start, 2),
+                   "latency":
+                   round(
+                       time.time() - start,
+                       2
+                    ),
 
                     "answer":
                     self.final_answer
-                })
+            })
 
             self.log("\n" + "=" * 70)
             self.log("PIPELINE COMPLETED")
             self.log("=" * 70)
 
-            # -----------------------------------
-            # UI MODE
-            # -----------------------------------
+        # -----------------------------------
+        # UI MODE
+        # -----------------------------------
 
             if not debug:
 
-                return self.final_answer
+               return self.final_answer
 
-            # -----------------------------------
-            # DEBUG MODE
-            # -----------------------------------
+        # -----------------------------------
+        # DEBUG MODE
+        # -----------------------------------
 
             return {
 
-                "query":
+               "query":
                 query,
 
                 "generated_queries":
@@ -601,7 +621,12 @@ class MedicalRAGPipeline:
             traceback.print_exc()
 
             return {
-
-                "error":
+               "error":
                 str(e)
             }
+
+    
+
+
+
+    

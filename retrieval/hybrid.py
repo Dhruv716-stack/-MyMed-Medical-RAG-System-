@@ -8,6 +8,9 @@ VECTOR_K = 4
 BM25_K = 6
 
 def build_bm25_retriever(docs: List[Document]):
+    if not docs:
+
+        return None
 
     retriever = BM25Retriever.from_documents(docs)
     retriever.k = BM25_K
@@ -21,6 +24,13 @@ def hybrid_retrieve(query: str, docs: List[Document]) -> List[Document]:
     bm25_retriever = build_bm25_retriever(docs)
 
     vector_docs = vectorstore.similarity_search(query, k=VECTOR_K)
+    
+    if bm25_retriever is None:
+
+        return vector_docs
+    
+    
+
 
     bm25_docs = bm25_retriever.invoke(query)
 
