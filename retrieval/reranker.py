@@ -10,15 +10,18 @@ _model = CrossEncoder(
     device=_device,
  )
 
-MAX_CANDIDATES = 15
-MAX_CHARS = 400
-BATCH_SIZE = 32
+MAX_CANDIDATES = 25    
+MAX_CHARS      = 512   
+BATCH_SIZE     = 32
+SCORE_THRESHOLD = -2.0 
+TOP_K_DEFAULT   = 10   
+
 
 
 def rerank_documents(
     query: str,
     docs: Sequence,
-    top_k: int = 5
+    top_k: int = TOP_K_DEFAULT
 ) -> List[Document]:
 
     if not docs:
@@ -72,4 +75,13 @@ def rerank_documents(
         reverse=True
     )
 
-    return [doc for doc, _ in ranked_docs[:top_k]]
+     # NEW: apply score threshold but always keep at least 3 docs
+    result = [
+        doc for doc, score in ranked_docs[:top_k]
+        if score > SCORE_THRESHOLD
+    ]
+
+    if len(result) < 3 and len(ranked_docs) >= 3:
+        result = [doc for doc, _ in ranked_docs[:3]]
+
+    return result

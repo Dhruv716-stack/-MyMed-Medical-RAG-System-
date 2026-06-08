@@ -1,50 +1,51 @@
-# retrieval/pre_retrieval/multi_query.py
-
-from langchain_core.prompts import PromptTemplate
+import os
+from typing import List
+from dotenv import load_dotenv
+from langchain_ollama import ChatOllama
+from langchain_core.prompts import ChatPromptTemplate
 from langchain_core.output_parsers import StrOutputParser
-from generation.retrieve_model import model
 
+load_dotenv()
 
-prompt = PromptTemplate.from_template("""
-You are a medical query optimizer for a RAG system.
+# Short generation task — Ollama is fine here
+model = ChatOllama(
+    model="qwen2.5:3b",
+    temperature=0.3,   # slight variation for diverse queries
+    base_url="http://localhost:11434",
+)
 
-Your task is to generate 3 to 5 alternative versions of the user query in a formal question type format that would be more effective for retrieving information from medical documents.
-STRICTLY for improving document retrieval.
+MULTI_QUERY_PROMPT = """
+You are a medical search assistant.
 
-IMPORTANT RULES:
-- Stay strictly within the scope of the original query
-- Do NOT introduce new topics (e.g., causes, prevention, risk factors)
-- Do NOT assume additional medical conditions
-- Do NOT expand beyond what is likely present in the document
-- Only rephrase or slightly expand wording for clarity
-- Preserve the original meaning of the question.
-- Do NOT introduce new diseases or medical concepts.
-- Do NOT change the topic.
+Generate exactly 3 different search queries for the following question.
+Each query should approach the topic from a slightly different angle
+to improve document retrieval coverage.
 
-Goal:
-- Improve semantic matching with the document
-- Not to broaden the question
+Rules:
+- One query per line
+- No numbering, no bullets, no explanations
+- Keep each query concise and medically precise
+- Do NOT answer the question
 
-Original Query:
-{query}
+Question: {query}
 
-Output:
-Provide 3 rewritten queries, each on a new line:
+3 Search Queries:
+"""
 
-""")
+def generate_multi_queries(query: str) -> List[str]:
+    prompt  = ChatPromptTemplate.from_template(MULTI_QUERY_PROMPT)
+    chain   = prompt | model | StrOutputParser()
+    result  = chain.invoke({"query": query}).strip()
 
-def generate_multi_queries(query: str, max_queries: int = 5):
-    chain = prompt | model | StrOutputParser()
-    output = chain.invoke({"query": query})
-
+    # Parse — one query per line
     queries = [
-        q.strip("- ").strip()
-        for q in output.split("\n")
-        if q.strip()
+        q.strip()
+        for q in result.split("\n")
+        if q.strip() and len(q.strip()) > 10
     ]
 
-    queries.append(query)
+    # Safety: always return at least the original query
+    if not queries:
+        return [query]
 
-    queries = list(set(queries))[:max_queries]
-
-    return queries
+    return queries[:3]

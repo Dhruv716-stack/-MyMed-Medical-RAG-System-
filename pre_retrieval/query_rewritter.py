@@ -1,55 +1,45 @@
-
+import os
+from dotenv import load_dotenv
+from langchain_ollama import ChatOllama
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_core.output_parsers import StrOutputParser
-from generation.retrieve_model import model
 
+load_dotenv()
 
-# Prompt template for rewriting
+# Lightweight task — Ollama local, saves Groq TPM for generation only
+model = ChatOllama(
+    model="qwen2.5:3b",
+    temperature=0.1,
+    base_url="http://localhost:11434",
+)
+
 QUERY_REWRITE_PROMPT = """
-You are a medical information retrieval assistant.
+You are a medical query optimizer for a RAG system.
 
-Your job is to convert a user's search query into a clear,
-formal medical question that would help retrieve information
-from medical textbooks or clinical documents.
+Rewrite the user's query to make it:
+- Clear
+- Specific  
+- Medically accurate
+- Optimized for semantic search
+
 Rules:
-- Convert the query into a complete question.
-- Convert the query into a complete question.
-- Preserve the original medical terms.
-- Expand abbreviations if obvious (bp → blood pressure).
-- Do NOT introduce new diseases or concepts.
-- Keep the meaning identical.
-- Remove conversational language
-- Make the query concise and retrieval-friendly
-STRICT RULES:
-- DO NOT introduce new medical terminology.
-- DO NOT replace disease names.
-- Keep the same key medical entities.
-- Only clarify wording and remove conversational phrases.
-- Keep the rewritten query close to the original.
+- Do NOT change the intent
+- Do NOT add extra information
+- Do NOT answer the query
+- Return ONLY the rewritten query, nothing else
 
-If the query is already good, return it unchanged.
+User Query: {query}
 
-User question:
-{query}
-
-Rewritten search query:
+Rewritten Query:
 """
 
-
 def rewrite_query(query: str) -> str:
-    """
-    Rewrite a query for better retrieval without changing meaning.
-    """
-    prompt = ChatPromptTemplate.from_template(QUERY_REWRITE_PROMPT)
+    prompt  = ChatPromptTemplate.from_template(QUERY_REWRITE_PROMPT)
+    chain   = prompt | model | StrOutputParser()
+    result  = chain.invoke({"query": query}).strip()
 
-    chain = prompt | model | StrOutputParser()
+    # Safety: if model returns empty or too long, fall back to original
+    if not result or len(result) > 500:
+        return query
 
-    rewritten_query = chain.invoke(
-        {
-            "query": query
-        }
-    )
-
-    final_query=rewritten_query.strip()
-
-    return final_query
+    return result
