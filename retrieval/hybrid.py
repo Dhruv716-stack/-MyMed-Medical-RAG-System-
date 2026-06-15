@@ -8,9 +8,16 @@ from vectorstore.store import get_vectorstore
 # CONFIG
 # =========================================================
 
+<<<<<<< HEAD
+def build_bm25_retriever(docs: List[Document]):
+    if not docs:
+
+        return None
+=======
 VECTOR_K   = 15    # widened from 4
 BM25_K     = 15    # widened from 6
 HYBRID_CAP = 25    # max unique docs to pass forward
+>>>>>>> 949ad2216c63ad1e0e48a4462a994576240c6e09
 
 
 
@@ -51,7 +58,17 @@ def hybrid_retrieve(query: str, docs: List[Document]) -> List[Document]:
     bm25_retriever = get_bm25_retriever(docs)   # cached singleton
 
     vector_docs = vectorstore.similarity_search(query, k=VECTOR_K)
+<<<<<<< HEAD
+    
+    if bm25_retriever is None:
+
+        return vector_docs
+    
+    
+
+=======
     bm25_docs   = bm25_retriever.invoke(query)
+>>>>>>> 949ad2216c63ad1e0e48a4462a994576240c6e09
 
     combined = vector_docs + bm25_docs
 

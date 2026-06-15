@@ -1,0 +1,14 @@
+{
+    "pdf_hash": "455aa3fd03d988002bf22c9b7fd1e954b323afcb4dce29ae708ab89c5729471d",
+    "embedding_model": "BAAI/bge-small-en-v1.5",
+    "chunk_size": 1200,
+    "chunk_overlap": 100,
+    "indexed_files": {
+        "C:\\Users\\madhu\\Downloads\\Definition_of_terms_used_in_limitation_of_treatment_and_providing_palliative_care_at_end_of_life.pdf": "4275d66f7c3a5baef91b1586ac4b03d1c3e9a3840c541e8269d073dce991a480"
+    },
+    "config": {
+        "embedding_model": "BAAI/bge-small-en-v1.5",
+        "chunk_size": 1200,
+        "chunk_overlap": 100
+    }
+}
