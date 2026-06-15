@@ -1,5 +1,3 @@
-# generation/generate.py
-
 from typing import List
 
 from langchain_core.documents import Document
@@ -10,32 +8,38 @@ from generation.guardrails import (
     validate_query,
     validate_context,
     safe_fallback_response,
+    out_of_scope_response,
+    query_too_long_response,
+    BLOCKED_PHRASES,
 )
 
 
+# =========================================================
+# SYSTEM PROMPT
+# =========================================================
+
 SYSTEM_PROMPT = """
-You are an expert medical document assistant.
+You are a medical document assistant.
 
 STRICT RULES:
-1. Answer ONLY from the provided context.
-2. Never use outside knowledge.
-3. If information is missing, say:
-   "The provided documents do not contain enough information."
-4. Generate detailed explanatory answers.
-5. Use professional formatting.
-6. Minimum 3 well-explained points.
-7. Every important statement MUST contain citations.
-8. Citation format:
-   [Source: filename | Page: X]
-9. Never hallucinate citations.
-10. Use only citations actually present in context.
-11. Add a short conclusion section.
+1. Use ONLY information present in the provided context.
+2. Do NOT add explanations, history, or facts not in the context.
+3. Every point MUST be directly supported by the context.
+4. Never hallucinate citations — only cite what is in the context.
+5. Citation format: [Source: filename | Page: X]
+6. If the context does not contain enough information, say:
+   "The provided documents do not contain enough information to answer this question."
 """
 
 
+# =========================================================
+# BUILD CONTEXT
+# =========================================================
+
 def build_context(docs: List[Document]) -> str:
     """
-    Build formatted context with metadata citations.
+    Build formatted context string from retrieved documents.
+    Each document includes its source and page metadata.
     """
 
     context_parts = []
@@ -43,22 +47,24 @@ def build_context(docs: List[Document]) -> str:
     for i, doc in enumerate(docs, 1):
 
         source = doc.metadata.get("source", "unknown")
-        page = doc.metadata.get("page", "N/A")
+        page   = doc.metadata.get("page", "N/A")
 
         context_parts.append(
             f"""
 DOCUMENT {i}
-
 SOURCE: {source}
 PAGE: {page}
 
-CONTENT:
-{doc.page_content}
+CONTENT: {doc.page_content}
 """
         )
 
     return "\n\n".join(context_parts)
 
+
+# =========================================================
+# GENERATE ANSWER
+# =========================================================
 
 def generate_answer(
     query: str,
@@ -66,60 +72,67 @@ def generate_answer(
 ) -> str:
     """
     Production-grade grounded answer generation.
+    Answers are strictly grounded to retrieved context only.
     """
 
-    
-    # Query Validation
-    
+    # -----------------------------------
+    # QUERY VALIDATION
+    # -----------------------------------
+
+    if len(query.strip()) > 500:
+     return query_too_long_response()
 
     if not validate_query(query):
-        return "Query blocked by safety guardrails."
+        query_lower = query.lower()
+        if any(p in query_lower for p in BLOCKED_PHRASES):
+            return "Query blocked by safety guardrails."
+        return out_of_scope_response()
 
-   
-    # Context Validation
-    
+
+    # -----------------------------------
+    # CONTEXT VALIDATION
+    # -----------------------------------
 
     if not validate_context(docs):
         return safe_fallback_response()
 
-    
-    # Build Context
-    
+    # -----------------------------------
+    # BUILD CONTEXT
+    # -----------------------------------
 
     context = build_context(docs)
 
-    
-    # User Prompt
-    
+    # -----------------------------------
+    # USER PROMPT
+    # -----------------------------------
 
     user_prompt = f"""
 CONTEXT:
 {context}
 
-QUESTION:
-{query}
+QUESTION: {query}
 
-Generate a professional grounded answer.
+Answer using ONLY the context above. Use this format:
 
-Answer Requirements:
+Introduction:
+[1-2 sentences directly answering the question — only from context]
 
-1. Add a short introduction.
-2. Provide at least 3 detailed numbered points.
-3. Every point must include citations.
-4. Use this citation format:
-   [Source: filename | Page: X]
-5. Add a short conclusion.
-6. Use ONLY provided context.
+Key Points:
+1. [point directly from context] [Source: filename | Page: X]
+2. [point directly from context] [Source: filename | Page: X]
+3. [point directly from context] [Source: filename | Page: X]
+
+Note: This answer is based solely on the provided medical documents.
 """
+
+    # -----------------------------------
+    # GENERATE
+    # -----------------------------------
 
     messages = [
         SystemMessage(content=SYSTEM_PROMPT),
         HumanMessage(content=user_prompt)
     ]
-
-    
-    # Generate
-   
 
     response = model.invoke(messages)
 

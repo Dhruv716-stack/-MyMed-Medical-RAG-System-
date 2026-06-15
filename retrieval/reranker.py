@@ -11,9 +11,9 @@ _model = CrossEncoder(
  )
 
 MAX_CANDIDATES = 25    
-MAX_CHARS      = 512   
+MAX_CHARS      = 800   # v2 change (was 512)
 BATCH_SIZE     = 32
-SCORE_THRESHOLD = -2.0 
+SCORE_THRESHOLD = 0.0  # v2 change (was -2.0)
 TOP_K_DEFAULT   = 10   
 
 

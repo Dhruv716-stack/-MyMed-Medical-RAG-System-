@@ -94,6 +94,37 @@ def truncate_to_sentences(text: str, max_chars: int = MAX_CHARS) -> str:
     return result.strip()
 
 
+def clean_answer(text: str) -> str:
+    """
+    Clean answer text for RAGAS 0.2.6 compatibility.
+    Removes markdown and special characters that break
+    the internal StringIO sentence tokenizer and output parser.
+    """
+    if not text:
+        return text
+
+    # Remove null bytes
+    text = text.replace('\x00', ' ')
+
+    # Remove markdown bold/italic
+    text = re.sub(r'\*\*(.+?)\*\*', r'\1', text)   # **bold** → bold
+    text = re.sub(r'\*(.+?)\*', r'\1', text)         # *italic* → italic
+
+    # Remove citation brackets — RAGAS parser chokes on [Source: x | Page: y]
+    text = re.sub(r'\[Source:[^\]]+\]', '', text)
+
+    # Remove markdown headers
+    text = re.sub(r'^#{1,6}\s+', '', text, flags=re.MULTILINE)
+
+    # Normalize excessive newlines
+    text = re.sub(r'\n{3,}', '\n\n', text)
+
+    # Remove multiple spaces
+    text = re.sub(r' {2,}', ' ', text)
+
+    return text.strip()
+
+
 # =========================================================
 # LOAD EVALUATION DATASET
 # =========================================================
@@ -194,6 +225,8 @@ def run_rag_pipeline(eval_data, paths: list) -> dict:
 
 def run_ragas_evaluation(dataset_dict: dict):
 
+    cleaned_answers = [clean_answer(a) for a in dataset_dict["answer"]]
+
     # Apply sentence-aware truncation before scoring
     truncated_contexts = [
         [
@@ -205,7 +238,7 @@ def run_ragas_evaluation(dataset_dict: dict):
 
     truncated_dict = {
         "question"    : dataset_dict["question"],
-        "answer"      : dataset_dict["answer"],
+        "answer"      : cleaned_answers,
         "contexts"    : truncated_contexts,
         "ground_truth": dataset_dict["ground_truth"],
     }

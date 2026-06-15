@@ -78,5 +78,86 @@
   {
     "question": "What is compassionate care in healthcare?",
     "ground_truth": "Compassionate care involves empathy, emotional support, dignity, and respect toward patients and families."
+  },
+
+  {
+    "question": "What are the three key components of the WHO framework for safe drinking-water?",
+    "ground_truth": "The WHO framework for safe drinking-water consists of health-based targets, water safety plans, and independent surveillance."
+  },
+  {
+    "question": "What is the purpose of health-based targets in drinking-water management?",
+    "ground_truth": "Health-based targets define the level of health protection to be achieved and guide drinking-water safety management."
+  },
+  {
+    "question": "What is verification in a water safety plan?",
+    "ground_truth": "Verification is the process of confirming that the drinking-water system is delivering water that meets safety objectives."
+  },
+  {
+    "question": "Why does WHO recommend a multiple-barrier approach to drinking-water safety?",
+    "ground_truth": "The multiple-barrier approach improves safety by combining source protection, treatment, distribution control, and monitoring to reduce risks."
+  },
+  {
+    "question": "What is the role of drinking-water supply agencies in water safety management?",
+    "ground_truth": "Drinking-water supply agencies are responsible for providing safe water through proper operation, management, and quality control of water systems."
+  },
+  {
+    "question": "Why are microbial hazards considered a primary concern in drinking-water?",
+    "ground_truth": "Microbial hazards are a primary concern because they can cause waterborne diseases and significant public health impacts."
+  },
+  {
+    "question": "How can climate change influence drinking-water quality?",
+    "ground_truth": "Climate change can affect drinking-water quality through changes in rainfall patterns, flooding, droughts, and water scarcity."
+  },
+  {
+    "question": "Why does WHO emphasize catchment-to-consumer risk management?",
+    "ground_truth": "Catchment-to-consumer risk management helps identify and control hazards throughout the entire water supply system."
+  },
+  {
+    "question": "What is a terminal illness according to the ICMR document?",
+    "ground_truth": "A terminal illness is an irreversible or incurable disease condition from which death is expected in the foreseeable future."
+  },
+  {
+    "question": "What does the term actively dying mean?",
+    "ground_truth": "Actively dying refers to the hours or days preceding imminent death during which the patient's physiological functions decline."
+  },
+  {
+    "question": "What is life-sustaining treatment?",
+    "ground_truth": "Life-sustaining treatment is any medical treatment that artificially supports or replaces a bodily function essential to life."
+  },
+  {
+    "question": "What is a Do Not Attempt Resuscitation (DNR) decision?",
+    "ground_truth": "A DNR decision is a decision not to initiate or perform cardiopulmonary resuscitation in a terminally ill patient according to the wishes of the patient or surrogate."
+  },
+  {
+    "question": "What is potentially inappropriate treatment?",
+    "ground_truth": "Potentially inappropriate treatment refers to interventions aimed at cure that have a much greater possibility of harm than benefit."
+  },
+  {
+    "question": "What is physician-assisted suicide?",
+    "ground_truth": "Physician-assisted suicide is an intentional act in which a physician provides the means or methods to help a terminally ill patient end their own life."
+  },
+  {
+    "question": "What is palliative sedation?",
+    "ground_truth": "Palliative sedation is the administration of sedative substances at the minimum necessary dosage to reduce consciousness in a terminally ill patient."
+  },
+  {
+    "question": "What is the principle of double effect?",
+    "ground_truth": "The principle of double effect distinguishes intended beneficial effects from unintended but foreseeable adverse effects of a medical intervention."
+  },
+  {
+    "question": "What is healthcare decision-making capacity?",
+    "ground_truth": "Healthcare decision-making capacity is the ability of a patient to make an independent and informed healthcare decision."
+  },
+  {
+    "question": "What are advance directives?",
+    "ground_truth": "Advance directives are statements made by a person with decision-making capacity describing how they wish to be treated if they later lose that capacity."
+  },
+  {
+    "question": "Who is a surrogate in healthcare decision-making?",
+    "ground_truth": "A surrogate is a person accepted as representing a patient's best interests and making decisions when the patient lacks decision-making capacity."
+  },
+  {
+    "question": "What is the concept of best interests in medical decision-making?",
+    "ground_truth": "Best interests require healthcare professionals to ensure that the potential benefits of medical interventions outweigh their potential harms."
   }
 ]

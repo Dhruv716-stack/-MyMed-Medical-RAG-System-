@@ -313,14 +313,13 @@ class MedicalRAGPipeline:
 
             # -----------------------------------
             # HYBRID
+            # Already loops all queries — unchanged
             # -----------------------------------
 
             for query in self.queries:
 
                 results = hybrid_retrieve(
-
                     query=query,
-
                     docs=self.chunks
                 )
 
@@ -330,8 +329,7 @@ class MedicalRAGPipeline:
             # REMOVE DUPLICATES
             # -----------------------------------
 
-            seen = set()
-
+            seen        = set()
             unique_docs = []
 
             for doc in all_results:
@@ -339,21 +337,46 @@ class MedicalRAGPipeline:
                 content = doc.page_content.strip()
 
                 if content not in seen:
-
                     unique_docs.append(doc)
-
                     seen.add(content)
 
             self.hybrid_results = unique_docs
 
+            self.log(
+                f"Hybrid Retrieved Docs: {len(self.hybrid_results)}"
+            )
+
             # -----------------------------------
             # MMR
+            # CHANGED: now loops all queries
+            # was: mmr_retriever.invoke(self.queries[0])
+            # now: runs for every query, merges + deduplicates
             # -----------------------------------
 
             mmr_retriever = get_mmr_retriever()
+            mmr_all       = []
 
-            self.mmr_results = mmr_retriever.invoke(
-                self.queries[0]
+            for query in self.queries:
+
+                mmr_results = mmr_retriever.invoke(query)
+                mmr_all.extend(mmr_results)
+
+            # Deduplicate MMR results
+            seen       = set()
+            mmr_unique = []
+
+            for doc in mmr_all:
+
+                content = doc.page_content.strip()
+
+                if content not in seen:
+                    mmr_unique.append(doc)
+                    seen.add(content)
+
+            self.mmr_results = mmr_unique
+
+            self.log(
+                f"MMR Results: {len(self.mmr_results)}"
             )
 
             # -----------------------------------
@@ -361,28 +384,30 @@ class MedicalRAGPipeline:
             # -----------------------------------
 
             combined = (
-
                 self.hybrid_results +
-
                 self.mmr_results
             )
 
             final_docs = []
-
-            seen = set()
+            seen       = set()
 
             for doc in combined:
 
                 content = doc.page_content.strip()
 
                 if content not in seen:
-
                     final_docs.append(doc)
-
                     seen.add(content)
+
+            self.log(
+                f"Combined Unique Docs: {len(final_docs)}"
+            )
 
             # -----------------------------------
             # RERANK
+            # CHANGED: top_k 5 → 10
+            # Reranker scores against queries[0] — most precise
+            # query version — this is correct and intentional
             # -----------------------------------
 
             self.reranked_docs = rerank_documents(
@@ -391,7 +416,7 @@ class MedicalRAGPipeline:
 
                 docs=final_docs,
 
-                top_k=5
+                top_k=10                
             )
 
             self.log(
@@ -400,22 +425,16 @@ class MedicalRAGPipeline:
 
             rt.add_metadata({
 
-                "hybrid_docs":
-                len(self.hybrid_results),
-
-                "mmr_docs":
-                len(self.mmr_results),
-
-                "reranked_docs":
-                len(self.reranked_docs)
+                "hybrid_docs"  : len(self.hybrid_results),
+                "mmr_docs"     : len(self.mmr_results),
+                "combined_docs": len(final_docs),
+                "reranked_docs": len(self.reranked_docs)
             })
 
             rt.add_outputs({
 
                 "retrieved_docs": [
-
                     d.page_content[:200]
-
                     for d in self.reranked_docs
                 ]
             })
