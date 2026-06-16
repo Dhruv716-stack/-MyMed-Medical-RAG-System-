@@ -122,6 +122,8 @@ Key Points:
 2. [point directly from context] [Source: filename | Page: X]
 3. [point directly from context] [Source: filename | Page: X]
 
+[Also include a conclusion based on the key points and generate a final answer.]
+
 Note: This answer is based solely on the provided medical documents.
 """
 
