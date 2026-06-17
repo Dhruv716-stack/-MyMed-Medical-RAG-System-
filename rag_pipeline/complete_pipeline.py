@@ -72,7 +72,22 @@ from post_retrieval.contextual_compression import (
 from generation.generate import generate_answer
 
 from generation.structured_output import clean_output
+# =========================================================
+# MEMORY
+# =========================================================
 
+from memory.memory_manager import (
+    get_recent_history,
+    save_message
+)
+
+from router.classifier import (
+    classify_query
+)
+
+from chat.general_chat import (
+    general_chat
+)
 
 # =========================================================
 # MAIN PRODUCTION RAG PIPELINE
@@ -107,6 +122,9 @@ class MedicalRAGPipeline:
         self.compressed_docs = []
 
         self.final_answer = ""
+        self.chat_history = ""
+
+        self.intent = ""
     # =====================================================
     # LOGGER
     # =====================================================
@@ -245,7 +263,15 @@ class MedicalRAGPipeline:
             self.log("STEP 2 — QUERY PREPARATION")
             self.log("=" * 70)
 
-            rewritten_query = rewrite_query(query)
+            try:
+
+               rewritten_query = rewrite_query(query)  
+            except Exception as e:
+                self.log(
+                    f"Rewrite failed: {e}"
+                )
+
+                rewritten_query = query
 
             queries = [rewritten_query]
 
@@ -545,15 +571,32 @@ class MedicalRAGPipeline:
     
     def run(
     self,
-    query: str,
-    file_path: str = None,
-    force_reindex: bool = False,
-    debug: bool = False
+    query,
+    file_path:str=None,
+    force_reindex:bool=False,
+    debug:bool=False
     ):
         try:
             
             with trace("Full Pipeline") as rt:
                 start = time.time()
+                
+                history = get_recent_history(
+                limit=15
+               )
+                
+                intent = classify_query(
+                   query
+                )
+                intent = intent.strip().upper()
+                if "GENERAL_CHAT" in intent:
+                    self.intent = "GENERAL_CHAT"
+
+                elif "MEDICAL_RAG" in intent:
+                    self.intent = "MEDICAL_RAG"
+
+                else:
+                    self.intent = "GENERAL_CHAT"
 
             # -----------------------------------
             # OPTIONAL INGESTION
@@ -572,28 +615,73 @@ class MedicalRAGPipeline:
             # QUERY PIPELINE
             # -----------------------------------
 
-                (
-                    self
+                if self.intent == "GENERAL_CHAT":
 
-                    .prepare_query(query)
+                  answer = general_chat(
 
-                    .retrieve()
+                   query=query,
 
-                    .post_retrieval()
+                   memory=history
+                  )
 
-                    .generate()
-                )
+                  save_message(
+                   role="user",
 
-                rt.add_metadata({
+                   message=query
+                  )
+
+                  save_message(
+
+                   role="assistant",
+
+                   message=answer
+                  )
+                  return answer
+            
+            self.prepare_query(
+               f"""
+                Previous Conversation:
+
+                {history}
+
+                Current Question:
+
+                {query}
+              """
+            )
+
+            self.retrieve()
+
+            self.post_retrieval()
+
+            self.generate()
+            
+            save_message(
+                role="user",
+                message=query
+            )
+
+            save_message(
+                role="assistant",
+                message=self.final_answer
+            )
+
+            rt.add_metadata({
 
                    "query":
                     query,
 
                    "ingested":
-                    file_path is not None
+                    file_path is not None,
+                    
+                    "intent":
+                    self.intent,
+
+                   "history_length":
+                    len(history or ""),
                 })
 
-                rt.add_outputs({
+            rt.add_outputs({
 
                    "latency":
                    round(
