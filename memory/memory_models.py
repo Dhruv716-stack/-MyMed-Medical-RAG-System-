@@ -48,3 +48,34 @@ class ChatMessage(Base):
         nullable=False,
         default=lambda: datetime.now(timezone.utc)
     )
+    
+class ConversationSummary(Base):
+
+    __tablename__ = "conversation_summaries"
+
+    id = Column(
+        Integer,
+        primary_key=True
+    )
+
+    user_id = Column(
+        String,
+        nullable=False
+    )
+
+    session_id = Column(
+        String,
+        nullable=False
+    )
+
+    summary = Column(
+        Text,
+        nullable=False,
+        default=""
+    )
+
+    updated_at = Column(
+        DateTime,
+        default=datetime.now(timezone.utc),
+        onupdate=datetime.now(timezone.utc)
+    )

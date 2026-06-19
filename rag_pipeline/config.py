@@ -46,3 +46,15 @@ ENABLE_SMART_INDEXING = True
 # ==========================================================
 
 COLLECTION_NAME = "medical_rag_documents"
+
+# ==========================================================
+# MEMORY (SUMMARY) CONFIG
+# ==========================================================
+
+ENABLE_SUMMARY_MEMORY = True
+
+RECENT_MEMORY_LIMIT = 10
+
+SUMMARY_UPDATE_INTERVAL = 4
+
+SUMMARY_MAX_WORDS = 250

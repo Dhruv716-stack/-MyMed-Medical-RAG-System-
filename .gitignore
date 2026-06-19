@@ -17,3 +17,4 @@ qdrant_data/
 
 # Ignore package marker file in pre_retrieval
 pre_retrieval/__init__.py
+chat_memory.db

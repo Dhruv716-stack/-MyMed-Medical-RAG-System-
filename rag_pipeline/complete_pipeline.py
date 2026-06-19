@@ -77,8 +77,11 @@ from generation.structured_output import clean_output
 # =========================================================
 
 from memory.memory_manager import (
-    get_recent_history,
     save_message
+)
+
+from memory.memory_builder import (
+    build_memory_context
 )
 
 from router.classifier import (
@@ -581,9 +584,7 @@ class MedicalRAGPipeline:
             with trace("Full Pipeline") as rt:
                 start = time.time()
                 
-                history = get_recent_history(
-                limit=15
-               )
+                memory_context = build_memory_context()
                 
                 intent = classify_query(
                    query
@@ -621,7 +622,7 @@ class MedicalRAGPipeline:
 
                    query=query,
 
-                   memory=history
+                   memory=memory_context
                   )
 
                   save_message(
@@ -642,7 +643,7 @@ class MedicalRAGPipeline:
                f"""
                 Previous Conversation:
 
-                {history}
+                {memory_context}
 
                 Current Question:
 
@@ -678,7 +679,7 @@ class MedicalRAGPipeline:
                     self.intent,
 
                    "history_length":
-                    len(history or ""),
+                    len(memory_context or ""),
                 })
 
             rt.add_outputs({
