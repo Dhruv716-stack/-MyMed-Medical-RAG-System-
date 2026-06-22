@@ -29,7 +29,9 @@ DEFAULT_SESSION = "chat_1"
 
 def save_message(
     role,
-    message
+    message,
+    user_id=DEFAULT_USER,
+    session_id=DEFAULT_SESSION
 ):
 
     db = SessionLocal()
@@ -38,9 +40,9 @@ def save_message(
 
         ChatMessage(
 
-            user_id=DEFAULT_USER,
+            user_id=user_id,
 
-            session_id=DEFAULT_SESSION,
+            session_id=session_id,
 
             role=role,
 
@@ -57,7 +59,9 @@ def save_message(
 # ==========================================
 
 def get_recent_history(
-    limit=10
+    limit=10,
+    user_id=DEFAULT_USER,
+    session_id=DEFAULT_SESSION
 ):
 
     db = SessionLocal()
@@ -68,9 +72,9 @@ def get_recent_history(
 
         .filter(
 
-            ChatMessage.user_id == DEFAULT_USER,
+            ChatMessage.user_id == user_id,
 
-            ChatMessage.session_id == DEFAULT_SESSION
+            ChatMessage.session_id == session_id
         )
 
         .order_by(
@@ -92,8 +96,11 @@ def get_recent_history(
 
         for r in rows
     )
-    
-def get_message_count():
+
+def get_message_count(
+    user_id=DEFAULT_USER,
+    session_id=DEFAULT_SESSION
+):
 
     db = SessionLocal()
 
@@ -101,6 +108,13 @@ def get_message_count():
 
         db.query(
             ChatMessage
+        )
+
+        .filter(
+
+            ChatMessage.user_id == user_id,
+
+            ChatMessage.session_id == session_id
         )
 
         .count()

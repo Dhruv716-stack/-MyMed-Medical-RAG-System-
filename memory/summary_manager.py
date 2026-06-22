@@ -6,7 +6,10 @@ DEFAULT_USER = "local_user"
 DEFAULT_SESSION = "chat_1"
 
 
-def get_summary():
+def get_summary(
+    user_id=DEFAULT_USER,
+    session_id=DEFAULT_SESSION
+):
 
     db = SessionLocal()
 
@@ -17,11 +20,11 @@ def get_summary():
         )
 
         .filter(
-            ConversationSummary.user_id == DEFAULT_USER
+            ConversationSummary.user_id == user_id
         )
 
         .filter(
-            ConversationSummary.session_id == DEFAULT_SESSION
+            ConversationSummary.session_id == session_id
         )
 
         .first()
@@ -37,7 +40,9 @@ def get_summary():
 
 
 def save_summary(
-    summary: str
+    summary: str,
+    user_id=DEFAULT_USER,
+    session_id=DEFAULT_SESSION
 ):
 
     db = SessionLocal()
@@ -49,11 +54,11 @@ def save_summary(
         )
 
         .filter(
-            ConversationSummary.user_id == DEFAULT_USER
+            ConversationSummary.user_id == user_id
         )
 
         .filter(
-            ConversationSummary.session_id == DEFAULT_SESSION
+            ConversationSummary.session_id == session_id
         )
 
         .first()
@@ -67,9 +72,9 @@ def save_summary(
 
         row = ConversationSummary(
 
-            user_id=DEFAULT_USER,
+            user_id=user_id,
 
-            session_id=DEFAULT_SESSION,
+            session_id=session_id,
 
             summary=summary
         )

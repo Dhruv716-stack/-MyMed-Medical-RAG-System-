@@ -212,7 +212,10 @@ def needs_reindex(
 
 def index_documents(
     docs: List[Document],
-    file_path: str
+    file_path: str,
+    user_id: str = None,
+    session_id: str = None,
+    source_type: str = "default"
 ):
 
     if not docs:
@@ -223,11 +226,23 @@ def index_documents(
 
     # ----------------------------------------
     # ADD SOURCE METADATA
+    # source_type defaults to "default" so old calls
+    # (admin knowledge base ingestion) are unaffected.
+    # user_id/session_id are only attached when given,
+    # so user-uploaded chunks can later be filtered out
+    # for everyone else at retrieval time.
     # ----------------------------------------
 
     for doc in docs:
 
         doc.metadata["source"] = file_path
+        doc.metadata["source_type"] = source_type
+
+        if user_id is not None:
+            doc.metadata["user_id"] = user_id
+
+        if session_id is not None:
+            doc.metadata["session_id"] = session_id
 
     # ----------------------------------------
     # INDEX

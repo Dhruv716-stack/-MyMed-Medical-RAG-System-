@@ -79,3 +79,39 @@ class ConversationSummary(Base):
         default=datetime.now(timezone.utc),
         onupdate=datetime.now(timezone.utc)
     )
+
+
+class UploadedFile(Base):
+
+    __tablename__ = "uploaded_files"
+
+    id = Column(
+        Integer,
+        primary_key=True
+    )
+
+    user_id = Column(
+        String,
+        nullable=False
+    )
+
+    session_id = Column(
+        String,
+        nullable=False
+    )
+
+    original_filename = Column(
+        String,
+        nullable=False
+    )
+
+    file_path = Column(
+        String,
+        nullable=False
+    )
+
+    uploaded_at = Column(
+        DateTime(timezone=True),
+        nullable=False,
+        default=lambda: datetime.now(timezone.utc)
+    )

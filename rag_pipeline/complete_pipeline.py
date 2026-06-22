@@ -1,6 +1,7 @@
 # pipeline.py
 
 from typing import Dict
+from pathlib import Path
 import traceback
 import time
 
@@ -77,11 +78,18 @@ from generation.structured_output import clean_output
 # =========================================================
 
 from memory.memory_manager import (
-    save_message
+    save_message,
+    DEFAULT_USER,
+    DEFAULT_SESSION
 )
 
 from memory.memory_builder import (
     build_memory_context
+)
+
+from memory.upload_manager import (
+    save_uploaded_file,
+    get_uploaded_files
 )
 
 from router.classifier import (
@@ -147,7 +155,10 @@ class MedicalRAGPipeline:
     def ingest(
         self,
         file_path: str,
-        force_reindex: bool = False
+        force_reindex: bool = False,
+        user_id: str = None,
+        session_id: str = None,
+        source_type: str = "default"
     ):
 
         with trace("Ingestion") as rt:
@@ -214,7 +225,10 @@ class MedicalRAGPipeline:
 
                index_documents(
                   docs=self.chunks,
-                  file_path=file_path
+                  file_path=file_path,
+                  user_id=user_id,
+                  session_id=session_id,
+                  source_type=source_type
                 )
 
                self.log(
@@ -331,7 +345,7 @@ class MedicalRAGPipeline:
 
     @traceable(name="Retrieval")
 
-    def retrieve(self):
+    def retrieve(self, user_id: str = None, session_id: str = None, restrict_to_user_upload: bool = False):
         print(
             "Chunks available:",
             len(self.chunks)
@@ -353,7 +367,10 @@ class MedicalRAGPipeline:
 
                 results = hybrid_retrieve(
                     query=query,
-                    docs=self.chunks
+                    docs=self.chunks,
+                    user_id=user_id,
+                    session_id=session_id,
+                    restrict_to_user_upload=restrict_to_user_upload
                 )
 
                 all_results.extend(results)
@@ -386,7 +403,7 @@ class MedicalRAGPipeline:
             # now: runs for every query, merges + deduplicates
             # -----------------------------------
 
-            mmr_retriever = get_mmr_retriever()
+            mmr_retriever = get_mmr_retriever(user_id=user_id, session_id=session_id, restrict_to_user_upload=restrict_to_user_upload)
             mmr_all       = []
 
             for query in self.queries:
@@ -577,14 +594,20 @@ class MedicalRAGPipeline:
     query,
     file_path:str=None,
     force_reindex:bool=False,
-    debug:bool=False
+    debug:bool=False,
+    user_id:str=None,
+    session_id:str=None,
+    source_type:str="default"
     ):
         try:
-            
+
             with trace("Full Pipeline") as rt:
                 start = time.time()
-                
-                memory_context = build_memory_context()
+
+                memory_context = build_memory_context(
+                    user_id=user_id,
+                    session_id=session_id
+                )
                 
                 intent = classify_query(
                    query
@@ -608,9 +631,36 @@ class MedicalRAGPipeline:
                         if force_reindex or needs_reindex(file_path):
                             self.ingest(
                             file_path=file_path,
-                            force_reindex=force_reindex
+                            force_reindex=force_reindex,
+                            user_id=user_id,
+                            session_id=session_id,
+                            source_type=source_type
                     )
                     self.active_file = file_path
+
+                    # Record this as a private upload so the user
+                    # sees it again on session reopen, and so
+                    # retrieval below is restricted to it only.
+                    if source_type == "user_upload" and user_id and session_id:
+                        save_uploaded_file(
+                            source_path=file_path,
+                            original_filename=Path(file_path).name,
+                            user_id=user_id,
+                            session_id=session_id
+                        )
+
+            # -----------------------------------
+            # ROUTING: default KB vs user-upload KB
+            # If this user already has uploaded file(s) in this
+            # session, every answer comes only from their own
+            # uploads — never the default knowledge base.
+            # -----------------------------------
+
+                restrict_to_user_upload = False
+
+                if user_id and session_id:
+                    if get_uploaded_files(user_id=user_id, session_id=session_id):
+                        restrict_to_user_upload = True
 
             # -----------------------------------
             # QUERY PIPELINE
@@ -628,14 +678,22 @@ class MedicalRAGPipeline:
                   save_message(
                    role="user",
 
-                   message=query
+                   message=query,
+
+                   user_id=user_id or DEFAULT_USER,
+
+                   session_id=session_id or DEFAULT_SESSION
                   )
 
                   save_message(
 
                    role="assistant",
 
-                   message=answer
+                   message=answer,
+
+                   user_id=user_id or DEFAULT_USER,
+
+                   session_id=session_id or DEFAULT_SESSION
                   )
                   return answer
             
@@ -651,7 +709,7 @@ class MedicalRAGPipeline:
               """
             )
 
-            self.retrieve()
+            self.retrieve(user_id=user_id, session_id=session_id, restrict_to_user_upload=restrict_to_user_upload)
 
             self.post_retrieval()
 
@@ -659,12 +717,16 @@ class MedicalRAGPipeline:
             
             save_message(
                 role="user",
-                message=query
+                message=query,
+                user_id=user_id or DEFAULT_USER,
+                session_id=session_id or DEFAULT_SESSION
             )
 
             save_message(
                 role="assistant",
-                message=self.final_answer
+                message=self.final_answer,
+                user_id=user_id or DEFAULT_USER,
+                session_id=session_id or DEFAULT_SESSION
             )
 
             rt.add_metadata({
