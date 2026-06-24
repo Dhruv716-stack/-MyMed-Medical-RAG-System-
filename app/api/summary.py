@@ -1,10 +1,12 @@
-from fastapi import APIRouter
+from fastapi import APIRouter, Depends
 
 from app.schemas.common_schema import APIResponse
 
 from app.services.summary_service import (
     get_chat_summary
 )
+
+from app.core.deps import get_current_user
 
 router = APIRouter(
 
@@ -18,8 +20,8 @@ router = APIRouter(
     ""
 )
 def summary(
-    user_id: str = "default_user",
     session_id: str = "default_session",
+    user_id: str = Depends(get_current_user),
 ):
 
     return APIResponse(

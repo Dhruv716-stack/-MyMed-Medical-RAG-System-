@@ -1,10 +1,12 @@
-from fastapi import APIRouter
+from fastapi import APIRouter, Depends
 
 from app.schemas.chat_schema import ChatRequest
 
 from app.schemas.common_schema import APIResponse
 
 from app.services.chat_services import chat
+
+from app.core.deps import get_current_user
 
 
 router = APIRouter(
@@ -21,7 +23,9 @@ router = APIRouter(
 
 def chat_endpoint(
 
-        request: ChatRequest
+        request: ChatRequest,
+
+        user_id: str = Depends(get_current_user),
 
 ):
 
@@ -29,7 +33,7 @@ def chat_endpoint(
 
         query=request.query,
 
-        user_id=request.user_id,
+        user_id=user_id,
 
         session_id=request.session_id,
     )

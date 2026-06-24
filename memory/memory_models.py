@@ -14,6 +14,41 @@ from datetime import datetime,timezone
 Base = declarative_base()
 
 
+# ==========================================================
+# USER (authentication)
+# ==========================================================
+
+class User(Base):
+
+    __tablename__ = "users"
+
+    # Our own generated id (e.g. "u_<uuid>") used everywhere in the
+    # pipeline as user_id. This is the trusted identity.
+    user_id = Column(
+        String,
+        primary_key=True
+    )
+
+    email = Column(
+        String,
+        unique=True,
+        nullable=False,
+        index=True
+    )
+
+    # bcrypt hash of the password — never the raw password.
+    hashed_password = Column(
+        String,
+        nullable=False
+    )
+
+    created_at = Column(
+        DateTime(timezone=True),
+        nullable=False,
+        default=lambda: datetime.now(timezone.utc)
+    )
+
+
 class ChatMessage(Base):
 
     __tablename__ = "chat_messages"

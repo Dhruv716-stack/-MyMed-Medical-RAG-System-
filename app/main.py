@@ -1,3 +1,9 @@
+from dotenv import load_dotenv
+
+# Load .env first so JWT_SECRET_KEY (and other keys) are available
+# everywhere, regardless of import order.
+load_dotenv()
+
 from fastapi import FastAPI
 
 from app.api.router import router
