@@ -77,7 +77,8 @@ def create_access_token(user_id: str) -> str:
 
     payload = {
         "sub": user_id,      # 'sub' = subject = who this token belongs to
-        "exp": expire,       # 'exp' = when it stops being valid
+        "exp": expire, # 'exp' = when it stops being valid
+        "iat": datetime.now(timezone.utc), # 'iat' = when it was issued
     }
 
     return jwt.encode(payload, SECRET_KEY, algorithm=ALGORITHM)

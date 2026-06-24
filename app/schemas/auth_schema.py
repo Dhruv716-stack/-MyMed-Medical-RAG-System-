@@ -10,8 +10,9 @@ class RegisterRequest(BaseModel):
     )
 
     password: str = Field(
-        min_length=6,
-        description="Password (at least 6 characters)"
+    min_length=8,
+    max_length=128,
+    description="Password"
     )
 
     username: Optional[str] = Field(
@@ -48,4 +49,8 @@ class TokenData(BaseModel):
     username: Optional[str] = Field(
         default=None,
         description="The user's display name, if they set one"
+    )
+    
+    expires_in: int = Field(
+    description="Token validity in seconds"
     )

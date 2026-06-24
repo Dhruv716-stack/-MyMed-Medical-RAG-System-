@@ -7,8 +7,8 @@ from fastapi import HTTPException
 
 def chat(
     query: str,
-    user_id: str = "default_user",
-    session_id: str = "default_session",
+    user_id: str,
+    session_id: str
 ):
     """
     Main chat service.

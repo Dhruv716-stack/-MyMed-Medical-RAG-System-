@@ -11,6 +11,8 @@ from app.services.session_service import (
 
 from app.core.deps import get_current_user
 
+from fastapi import status
+
 
 router = APIRouter(
     prefix="/sessions",
@@ -18,7 +20,7 @@ router = APIRouter(
 )
 
 
-@router.post("")
+@router.post("", response_model=APIResponse, status_code=status.HTTP_201_CREATED)
 def new_session(
     request: CreateSessionRequest,
     user_id: str = Depends(get_current_user),
@@ -36,7 +38,7 @@ def new_session(
     )
 
 
-@router.get("")
+@router.get("", response_model=APIResponse)
 def get_sessions(
     user_id: str = Depends(get_current_user),
 ):
