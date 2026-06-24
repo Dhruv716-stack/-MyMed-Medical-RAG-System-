@@ -4,6 +4,12 @@
 fastapi
 uvicorn[standard]
 python-dotenv
+python-multipart        # required for file uploads (UploadFile / Form)
+
+# Authentication
+bcrypt                  # password hashing
+python-jose[cryptography]  # JWT tokens
+email-validator         # validates EmailStr in auth schemas
 
 # =========================
 # PDF Processing / Ingestion

@@ -1,0 +1,287 @@
+<!DOCTYPE html>
+<!--
+  ============================================================
+  THROWAWAY TEST UI  (Phase 3, option 1)
+  ============================================================
+  This is a self-contained test frontend for the MyMED API.
+  It only uses the public JSON endpoints (/auth, /sessions,
+  /chat, /upload, /history). It holds NO business logic and
+  NO AI — every answer comes from your real /chat -> pipeline.run().
+
+  To REMOVE this UI later (e.g. switch to React/Streamlit):
+    1. Delete the app/web/ folder.
+    2. Delete the lines marked "WEB UI (test only)" in app/main.py.
+  The API keeps working exactly the same with zero other changes.
+  ============================================================
+-->
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>MyMED — Test UI</title>
+  <style>
+    * { box-sizing: border-box; font-family: system-ui, sans-serif; }
+    body { margin: 0; background: #0f1115; color: #e6e6e6; height: 100vh; display: flex; }
+
+    /* ---- Auth screen ---- */
+    #auth { margin: auto; width: 320px; background: #171a21; padding: 28px; border-radius: 12px; }
+    #auth h1 { font-size: 20px; margin: 0 0 16px; }
+    #auth input { width: 100%; padding: 10px; margin: 6px 0; border-radius: 8px; border: 1px solid #2a2f3a; background: #0f1115; color: #fff; }
+    #auth button { width: 100%; padding: 10px; margin-top: 8px; border: 0; border-radius: 8px; background: #3b82f6; color: #fff; cursor: pointer; font-weight: 600; }
+    #auth .row { display: flex; gap: 8px; }
+    #auth .row button { background: #2a2f3a; }
+    .msg { font-size: 13px; margin-top: 10px; min-height: 16px; }
+    .err { color: #f87171; } .ok { color: #4ade80; }
+
+    /* ---- App layout ---- */
+    #app { display: none; width: 100%; }
+    #sidebar { width: 240px; background: #13161c; border-right: 1px solid #232833; padding: 12px; display: flex; flex-direction: column; }
+    #sidebar h2 { font-size: 14px; color: #9aa3b2; margin: 4px 0 10px; }
+    #newChat { padding: 9px; border: 0; border-radius: 8px; background: #3b82f6; color: #fff; cursor: pointer; margin-bottom: 10px; font-weight: 600; }
+    .session { padding: 9px 10px; border-radius: 8px; cursor: pointer; font-size: 13px; color: #cbd5e1; margin-bottom: 4px; border: 1px solid transparent; }
+    .session:hover { background: #1b1f27; }
+    .session.active { background: #1f2937; border-color: #3b82f6; }
+    #logout { margin-top: auto; padding: 8px; background: #2a2f3a; border: 0; border-radius: 8px; color: #cbd5e1; cursor: pointer; }
+
+    #main { flex: 1; display: flex; flex-direction: column; }
+    #messages { flex: 1; overflow-y: auto; padding: 20px; }
+    .bubble { max-width: 70%; padding: 10px 14px; border-radius: 12px; margin: 8px 0; line-height: 1.45; white-space: pre-wrap; }
+    .user { background: #2563eb; margin-left: auto; }
+    .assistant { background: #1f2530; }
+    .meta { font-size: 11px; color: #6b7280; margin-top: 4px; }
+    .empty { color: #6b7280; text-align: center; margin-top: 40px; font-size: 14px; }
+
+    #composer { display: flex; gap: 8px; padding: 14px; border-top: 1px solid #232833; align-items: center; }
+    #composer input[type=text] { flex: 1; padding: 12px; border-radius: 10px; border: 1px solid #2a2f3a; background: #0f1115; color: #fff; }
+    #composer button { padding: 12px 18px; border: 0; border-radius: 10px; background: #3b82f6; color: #fff; cursor: pointer; font-weight: 600; }
+    #uploadBtn { background: #2a2f3a; }
+    #fileName { font-size: 12px; color: #9aa3b2; max-width: 140px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  </style>
+</head>
+<body>
+
+  <!-- ============ AUTH SCREEN ============ -->
+  <div id="auth">
+    <h1>MyMED — Sign in</h1>
+    <input id="username" type="text" placeholder="name / username (optional)" />
+    <input id="email" type="email" placeholder="email" />
+    <input id="password" type="password" placeholder="password (min 6 chars)" />
+    <div class="row">
+      <button onclick="doLogin()">Login</button>
+      <button onclick="doRegister()">Register</button>
+    </div>
+    <div id="authMsg" class="msg"></div>
+  </div>
+
+  <!-- ============ MAIN APP ============ -->
+  <div id="app">
+    <div id="sidebar">
+      <h2 id="greeting">Chats</h2>
+      <button id="newChat" onclick="newSession()">+ New Chat</button>
+      <div id="sessions"></div>
+      <button id="logout" onclick="logout()">Log out</button>
+    </div>
+
+    <div id="main">
+      <div id="messages"><div class="empty">Start a new chat or pick one on the left.</div></div>
+      <div id="composer">
+        <button id="uploadBtn" onclick="document.getElementById('file').click()">📎 Upload PDF</button>
+        <input id="file" type="file" accept=".pdf,.txt,.docx" style="display:none" onchange="doUpload()" />
+        <span id="fileName"></span>
+        <input id="msg" type="text" placeholder="Ask a medical question..." onkeydown="if(event.key==='Enter')sendChat()" />
+        <button onclick="sendChat()">Send</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // ============================================================
+    // State lives only in the browser. The token proves who you are;
+    // the server decides everything else.
+    // ============================================================
+    let token = localStorage.getItem("token") || null;
+    let currentSession = null;
+
+    const $ = (id) => document.getElementById(id);
+    const authMsg = (t, ok) => { $("authMsg").textContent = t; $("authMsg").className = "msg " + (ok ? "ok" : "err"); };
+
+    // Generic API helper. Adds the Bearer token automatically.
+    async function api(path, { method = "GET", body = null, isForm = false } = {}) {
+      const headers = {};
+      if (token) headers["Authorization"] = "Bearer " + token;
+      if (!isForm) headers["Content-Type"] = "application/json";
+      const res = await fetch(path, {
+        method,
+        headers,
+        body: isForm ? body : (body ? JSON.stringify(body) : null),
+      });
+      const data = await res.json().catch(() => ({}));
+      return { status: res.status, data };
+    }
+
+    // ---------------- AUTH ----------------
+    async function doRegister() {
+      const { status, data } = await api("/auth/register", {
+        method: "POST",
+        body: {
+          email: $("email").value,
+          password: $("password").value,
+          username: $("username").value || null,
+        },
+      });
+      if (status === 200) authMsg("Registered! Now click Login.", true);
+      else authMsg(detailOf(data) || "Register failed", false);
+    }
+
+    async function doLogin() {
+      const { status, data } = await api("/auth/login", {
+        method: "POST",
+        body: { email: $("email").value, password: $("password").value },
+      });
+      if (status === 200) {
+        token = data.data.access_token;
+        localStorage.setItem("token", token);
+        const name = data.data.username || data.data.user_id;
+        localStorage.setItem("displayName", name);
+        enterApp();
+      } else {
+        authMsg(detailOf(data) || "Login failed", false);
+      }
+    }
+
+    function logout() {
+      token = null; currentSession = null;
+      localStorage.removeItem("token");
+      localStorage.removeItem("displayName");
+      $("app").style.display = "none";
+      $("auth").style.display = "block";
+    }
+
+    // ---------------- APP ----------------
+    async function enterApp() {
+      $("auth").style.display = "none";
+      $("app").style.display = "flex";
+      const name = localStorage.getItem("displayName");
+      $("greeting").textContent = name ? ("Hi, " + name) : "Chats";
+      await loadSessions();
+    }
+
+    async function loadSessions() {
+      const { status, data } = await api("/sessions");
+      if (status === 401) { logout(); return; }   // token expired
+      const list = (data.data && data.data.sessions) || [];
+      const box = $("sessions");
+      box.innerHTML = "";
+      list.forEach((s) => {
+        const el = document.createElement("div");
+        el.className = "session" + (s.session_id === currentSession ? " active" : "");
+        el.textContent = s.title || "Chat";
+        el.onclick = () => openSession(s.session_id);
+        box.appendChild(el);
+      });
+    }
+
+    async function newSession() {
+      const { data } = await api("/sessions", { method: "POST", body: { title: "New Chat" } });
+      currentSession = data.data.session_id;
+      await loadSessions();
+      $("messages").innerHTML = "";
+    }
+
+    async function openSession(sid) {
+      currentSession = sid;
+      await loadSessions();
+      $("messages").innerHTML = "";
+      // load past history for this session
+      const { data } = await api("/history?session_id=" + encodeURIComponent(sid) + "&limit=50");
+      const hist = data.data && data.data.history;
+      if (hist && hist.trim()) {
+        // history comes back as "role: message" lines
+        hist.split("\n").forEach((line) => {
+          if (!line.trim()) return;
+          const isUser = line.startsWith("user:");
+          addBubble(line.replace(/^(user|assistant):\s*/, ""), isUser ? "user" : "assistant");
+        });
+      } else {
+        $("messages").innerHTML = '<div class="empty">No messages yet — say hello.</div>';
+      }
+    }
+
+    function clearEmpty() {
+      const e = $("messages").querySelector(".empty");
+      if (e) e.remove();
+    }
+
+    function addBubble(text, role, meta) {
+      clearEmpty();
+      const b = document.createElement("div");
+      b.className = "bubble " + role;
+      b.textContent = text;
+      if (meta) { const m = document.createElement("div"); m.className = "meta"; m.textContent = meta; b.appendChild(m); }
+      $("messages").appendChild(b);
+      $("messages").scrollTop = $("messages").scrollHeight;
+      return b;
+    }
+
+    // ---------------- CHAT (calls your real RAG pipeline) ----------------
+    async function sendChat() {
+      const q = $("msg").value.trim();
+      if (!q) return;
+      if (!currentSession) await newSession();
+      addBubble(q, "user");
+      $("msg").value = "";
+      const thinking = addBubble("…thinking…", "assistant");
+      const { status, data } = await api("/chat", {
+        method: "POST",
+        body: { query: q, session_id: currentSession },
+      });
+      thinking.remove();
+      if (status === 200) {
+        const d = data.data || {};
+        let answer = d.answer;
+        // The pipeline normally returns a string. If something failed it may
+        // return an object like {error: "..."} or {answer: {...}} — show the
+        // real text instead of "[object Object]".
+        if (answer && typeof answer === "object") {
+          answer = answer.error || answer.answer || JSON.stringify(answer);
+        }
+        if (!answer && d.error) answer = "Pipeline error: " + d.error;
+        addBubble(answer || "(no answer)", "assistant", "latency: " + d.latency + "s");
+      } else {
+        addBubble("Error: " + (detailOf(data) || status), "assistant");
+      }
+    }
+
+    // ---------------- UPLOAD ----------------
+    async function doUpload() {
+      const f = $("file").files[0];
+      if (!f) return;
+      if (!currentSession) await newSession();
+      $("fileName").textContent = "uploading " + f.name + "…";
+      const form = new FormData();
+      form.append("file", f);
+      form.append("session_id", currentSession);
+      const { status, data } = await api("/upload", { method: "POST", body: form, isForm: true });
+      if (status === 200) {
+        $("fileName").textContent = "✓ " + f.name;
+        addBubble("📄 Uploaded: " + f.name + " — answers in this chat now use this document.", "assistant");
+      } else {
+        $("fileName").textContent = "upload failed";
+        addBubble("Upload error: " + (detailOf(data) || status), "assistant");
+      }
+      $("file").value = "";
+    }
+
+    // FastAPI errors come as {detail: ...}; our success envelope uses {message,...}
+    function detailOf(data) {
+      if (!data) return null;
+      if (typeof data.detail === "string") return data.detail;
+      if (Array.isArray(data.detail)) return data.detail.map(d => d.msg).join(", ");
+      return data.message || null;
+    }
+
+    // auto-enter if we already have a token from a previous visit
+    if (token) enterApp();
+  </script>
+</body>
+</html>

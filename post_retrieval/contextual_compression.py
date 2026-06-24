@@ -17,7 +17,7 @@ load_dotenv()
 # Compression is a summarization task — Ollama qwen2.5:3b handles it well
 # Keeps Groq TPM free for generation only
 compression_model = ChatOllama(
-    model="qwen2.5:1.5b",
+    model="qwen2.5:3b",
     temperature=0.0,
     base_url="http://localhost:11434",
 )

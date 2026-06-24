@@ -22,3 +22,7 @@ chat_memory.db
 # Keep data/ folder structure in repo, but never commit users' uploaded files
 data/user_uploads/*
 !data/user_uploads/.gitkeep
+
+# Runtime artifacts from the FastAPI app
+logs/
+uploads/

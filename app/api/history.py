@@ -1,10 +1,12 @@
-from fastapi import APIRouter
+from fastapi import APIRouter, Depends
 
 from app.schemas.common_schema import APIResponse
 
 from app.services.history_service import (
     get_history
 )
+
+from app.core.deps import get_current_user, ensure_session_owner
 
 router = APIRouter(
 
@@ -17,7 +19,13 @@ router = APIRouter(
 @router.get(
     ""
 )
-def history():
+def history(
+    session_id: str = "default_session",
+    limit: int = 10,
+    user_id: str = Depends(get_current_user),
+):
+
+    ensure_session_owner(session_id, user_id)
 
     return APIResponse(
 
@@ -25,5 +33,9 @@ def history():
 
         message="History fetched.",
 
-        data=get_history()
+        data=get_history(
+            user_id=user_id,
+            session_id=session_id,
+            limit=limit,
+        )
     )
