@@ -4,6 +4,8 @@ from pathlib import Path
 
 from app.core.singleton import get_pipeline
 
+from memory.upload_manager import save_uploaded_file
+
 
 UPLOAD_DIR = "uploads"
 
@@ -14,7 +16,11 @@ Path(
 )
 
 
-def save_file(file):
+def save_file(
+    file,
+    user_id: str = "default_user",
+    session_id: str = "default_session",
+):
 
     save_path = Path(
         UPLOAD_DIR
@@ -35,7 +41,10 @@ def save_file(file):
     )
 
     # --------------------------
-    # Index document
+    # Index document as this
+    # user's private upload, so
+    # retrieval can be restricted
+    # to their own files only.
     # --------------------------
 
     pipeline = get_pipeline()
@@ -44,7 +53,27 @@ def save_file(file):
 
         file_path=saved_path,
 
-        force_reindex=False
+        force_reindex=False,
+
+        user_id=user_id,
+
+        session_id=session_id,
+
+        source_type="user_upload",
+    )
+
+    # --------------------------
+    # Record the upload so the
+    # user sees it again when the
+    # session is reopened (same as
+    # the pipeline's own run()).
+    # --------------------------
+
+    save_uploaded_file(
+        source_path=saved_path,
+        original_filename=file.filename,
+        user_id=user_id,
+        session_id=session_id,
     )
 
     # --------------------------

@@ -17,7 +17,11 @@ router = APIRouter(
 @router.get(
     ""
 )
-def history():
+def history(
+    user_id: str = "default_user",
+    session_id: str = "default_session",
+    limit: int = 10,
+):
 
     return APIResponse(
 
@@ -25,5 +29,9 @@ def history():
 
         message="History fetched.",
 
-        data=get_history()
+        data=get_history(
+            user_id=user_id,
+            session_id=session_id,
+            limit=limit,
+        )
     )

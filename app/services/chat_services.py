@@ -2,39 +2,33 @@ import time
 
 from app.core.singleton import get_pipeline
 
-pipeline=get_pipeline()
+
 def chat(
     query: str,
+    user_id: str = "default_user",
+    session_id: str = "default_session",
 ):
     """
     Main chat service.
 
-    - Handles Swagger's default 'string' value.
-    - Falls back to normal chat/RAG routing when no file is supplied.
+    - Routes the query through the existing MedicalRAGPipeline, which
+      internally decides general-chat vs medical-RAG and saves memory.
+    - Passes user_id / session_id so each user's memory and uploads
+      stay isolated (multi-tenant storage).
     - Measures latency.
-    - Prevents API crashes from bubbling up.
+    - Prevents API crashes from bubbling up to the client.
     """
 
-    # ----------------------------------
-    # Normalize file path
-    # ----------------------------------
-
-    if file_path in (
-        None,
-        "",
-        "string",
-        "null",
-        "None"
-    ):
-        file_path = None
+    pipeline = get_pipeline()
 
     start = time.time()
 
     try:
 
         answer = pipeline.run(
-
             query=query,
+            user_id=user_id,
+            session_id=session_id,
         )
 
         latency = round(
@@ -43,12 +37,9 @@ def chat(
         )
 
         return {
-
             "answer": answer,
-
             "citations": [],
-
-            "latency": latency
+            "latency": latency,
         }
 
     except Exception as e:
@@ -59,12 +50,8 @@ def chat(
         )
 
         return {
-
             "answer": None,
-
             "citations": [],
-
             "latency": latency,
-
-            "error": str(e)
+            "error": str(e),
         }

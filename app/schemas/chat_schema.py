@@ -7,6 +7,16 @@ class ChatRequest(BaseModel):
         description="User query"
     )
 
+    user_id: str = Field(
+        default="default_user",
+        description="Identifies the user; keeps each user's memory and uploads isolated"
+    )
+
+    session_id: str = Field(
+        default="default_session",
+        description="Identifies the chat session; one user can have many sessions"
+    )
+
 class Citation(BaseModel):
 
     source: str = Field(

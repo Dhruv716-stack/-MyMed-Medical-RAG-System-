@@ -28,6 +28,10 @@ def chat_endpoint(
     result = chat(
 
         query=request.query,
+
+        user_id=request.user_id,
+
+        session_id=request.session_id,
     )
 
     return APIResponse(

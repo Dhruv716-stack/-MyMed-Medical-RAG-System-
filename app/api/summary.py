@@ -17,7 +17,10 @@ router = APIRouter(
 @router.get(
     ""
 )
-def summary():
+def summary(
+    user_id: str = "default_user",
+    session_id: str = "default_session",
+):
 
     return APIResponse(
 
@@ -25,5 +28,8 @@ def summary():
 
         message="Summary fetched.",
 
-        data=get_chat_summary()
+        data=get_chat_summary(
+            user_id=user_id,
+            session_id=session_id,
+        )
     )

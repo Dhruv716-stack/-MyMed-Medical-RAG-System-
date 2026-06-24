@@ -1,7 +1,8 @@
 from fastapi import (
     APIRouter,
     UploadFile,
-    File
+    File,
+    Form
 )
 
 from app.schemas.common_schema import APIResponse
@@ -21,12 +22,18 @@ router = APIRouter(
 @router.post("")
 def upload_file(
 
-    file: UploadFile = File(...)
+    file: UploadFile = File(...),
+
+    user_id: str = Form("default_user"),
+
+    session_id: str = Form("default_session"),
 
 ):
 
     result = save_file(
-        file
+        file,
+        user_id=user_id,
+        session_id=session_id,
     )
 
     return APIResponse(
