@@ -2,6 +2,8 @@ import time
 
 from app.core.singleton import get_pipeline
 
+from fastapi import HTTPException
+
 
 def chat(
     query: str,
@@ -44,14 +46,7 @@ def chat(
 
     except Exception as e:
 
-        latency = round(
-            time.time() - start,
-            2
-        )
-
-        return {
-            "answer": None,
-            "citations": [],
-            "latency": latency,
-            "error": str(e),
-        }
+      raise HTTPException(
+        status_code=500,
+        detail=str(e)
+      )
