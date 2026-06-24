@@ -6,7 +6,7 @@ from app.services.summary_service import (
     get_chat_summary
 )
 
-from app.core.deps import get_current_user
+from app.core.deps import get_current_user, ensure_session_owner
 
 router = APIRouter(
 
@@ -23,6 +23,8 @@ def summary(
     session_id: str = "default_session",
     user_id: str = Depends(get_current_user),
 ):
+
+    ensure_session_owner(session_id, user_id)
 
     return APIResponse(
 

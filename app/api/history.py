@@ -6,7 +6,7 @@ from app.services.history_service import (
     get_history
 )
 
-from app.core.deps import get_current_user
+from app.core.deps import get_current_user, ensure_session_owner
 
 router = APIRouter(
 
@@ -24,6 +24,8 @@ def history(
     limit: int = 10,
     user_id: str = Depends(get_current_user),
 ):
+
+    ensure_session_owner(session_id, user_id)
 
     return APIResponse(
 

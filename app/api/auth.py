@@ -26,6 +26,7 @@ def register(request: RegisterRequest):
     result = register_service(
         email=request.email,
         password=request.password,
+        username=request.username,
     )
 
     if not result["ok"]:
@@ -37,7 +38,10 @@ def register(request: RegisterRequest):
     return APIResponse(
         success=True,
         message="Registration successful. You can now log in.",
-        data={"user_id": result["user_id"]},
+        data={
+            "user_id": result["user_id"],
+            "username": result.get("username"),
+        },
     )
 
 
@@ -61,5 +65,6 @@ def login(request: LoginRequest):
         data=TokenData(
             access_token=result["access_token"],
             user_id=result["user_id"],
+            username=result.get("username"),
         ).model_dump(),
     )

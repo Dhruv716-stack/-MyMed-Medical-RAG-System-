@@ -12,7 +12,7 @@ from app.services.upload_service import (
     save_file
 )
 
-from app.core.deps import get_current_user
+from app.core.deps import get_current_user, ensure_session_owner
 
 router = APIRouter(
 
@@ -32,6 +32,8 @@ def upload_file(
     user_id: str = Depends(get_current_user),
 
 ):
+
+    ensure_session_owner(session_id, user_id)
 
     result = save_file(
         file,

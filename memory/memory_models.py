@@ -36,10 +36,47 @@ class User(Base):
         index=True
     )
 
+    # Optional display name the user chooses. May be empty.
+    username = Column(
+        String,
+        nullable=True
+    )
+
     # bcrypt hash of the password — never the raw password.
     hashed_password = Column(
         String,
         nullable=False
+    )
+
+    created_at = Column(
+        DateTime(timezone=True),
+        nullable=False,
+        default=lambda: datetime.now(timezone.utc)
+    )
+
+
+class ChatSession(Base):
+
+    __tablename__ = "sessions"
+
+    # Our generated id (e.g. "s_<uuid>") used as session_id everywhere.
+    session_id = Column(
+        String,
+        primary_key=True
+    )
+
+    # Which user owns this chat session.
+    user_id = Column(
+        String,
+        nullable=False,
+        index=True
+    )
+
+    # A short label for the chat (UI shows this in the sidebar).
+    title = Column(
+        String,
+        nullable=False,
+        default="New Chat"
     )
 
     created_at = Column(

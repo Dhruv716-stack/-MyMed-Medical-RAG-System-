@@ -4,7 +4,8 @@
     "chunk_size": 1200,
     "chunk_overlap": 100,
     "indexed_files": {
-        "C:\\Users\\madhu\\Downloads\\Definition_of_terms_used_in_limitation_of_treatment_and_providing_palliative_care_at_end_of_life.pdf": "4275d66f7c3a5baef91b1586ac4b03d1c3e9a3840c541e8269d073dce991a480"
+        "C:\\Users\\madhu\\Downloads\\Definition_of_terms_used_in_limitation_of_treatment_and_providing_palliative_care_at_end_of_life.pdf": "4275d66f7c3a5baef91b1586ac4b03d1c3e9a3840c541e8269d073dce991a480",
+        "uploads\\disease-handbook-complete.pdf": "41ef07af6a89330d26ba361319ac99c761e97f838d78d21aa09f032a9611ffa6"
     },
     "config": {
         "embedding_model": "BAAI/bge-small-en-v1.5",

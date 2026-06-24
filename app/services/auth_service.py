@@ -21,7 +21,7 @@ from app.core.security import (
 # REGISTER
 # ----------------------------------------------------------
 
-def register(email: str, password: str) -> dict:
+def register(email: str, password: str, username: str = None) -> dict:
     """
     Create a new account.
 
@@ -48,6 +48,7 @@ def register(email: str, password: str) -> dict:
         user = User(
             user_id=generate_user_id(),
             email=email,
+            username=(username or None),
             hashed_password=hash_password(password),
         )
 
@@ -57,6 +58,7 @@ def register(email: str, password: str) -> dict:
         return {
             "ok": True,
             "user_id": user.user_id,
+            "username": user.username,
         }
 
     finally:
@@ -99,6 +101,7 @@ def login(email: str, password: str) -> dict:
             "ok": True,
             "access_token": token,
             "user_id": user.user_id,
+            "username": user.username,
         }
 
     finally:

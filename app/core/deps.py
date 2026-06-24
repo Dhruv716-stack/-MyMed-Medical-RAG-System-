@@ -33,3 +33,26 @@ def get_current_user(token: str = Depends(oauth2_scheme)) -> str:
         )
 
     return user_id
+
+
+# Sessions named this are an implicit per-user default and don't need an
+# ownership row (keeps simple/testing usage working without /sessions).
+DEFAULT_SESSION_NAME = "default_session"
+
+
+def ensure_session_owner(session_id: str, user_id: str) -> None:
+    """
+    Raise 403 if session_id is a real session that does NOT belong to
+    this user. The default session is always allowed.
+    """
+    # imported here to avoid a circular import at module load
+    from app.services.session_service import session_belongs_to_user
+
+    if session_id == DEFAULT_SESSION_NAME:
+        return
+
+    if not session_belongs_to_user(session_id, user_id):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="This session does not belong to you.",
+        )
