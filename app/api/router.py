@@ -1,12 +1,13 @@
 from fastapi import APIRouter
+from app.api.chat import router as chat_router
 
-from api.chat import router as chat_router
+from app.api.upload import router as upload_router
 
-from api.upload import router as upload_router
-from api.history import router as history_router
-from api.summary import router as summary_router
-from api.health import router as health_router
+from app.api.history import router as history_router
 
+from app.api.summary import router as summary_router
+
+from app.api.health import router as health_router
 router = APIRouter()
 
 router.include_router(

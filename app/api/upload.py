@@ -4,9 +4,9 @@ from fastapi import (
     File
 )
 
-from schemas.common_schema import APIResponse
+from app.schemas.common_schema import APIResponse
 
-from services.upload_service import (
+from app.services.upload_service import (
     save_file
 )
 
@@ -18,15 +18,14 @@ router = APIRouter(
 )
 
 
-@router.post(
-    ""
-)
+@router.post("")
 def upload_file(
 
-        file: UploadFile = File(...)
+    file: UploadFile = File(...)
+
 ):
 
-    path = save_file(
+    result = save_file(
         file
     )
 
@@ -34,12 +33,7 @@ def upload_file(
 
         success=True,
 
-        message="File uploaded successfully.",
+        message="File uploaded and indexed successfully.",
 
-        data={
-
-            "filename": file.filename,
-
-            "path": path
-        }
+        data=result
     )

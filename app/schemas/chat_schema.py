@@ -3,14 +3,15 @@ from pydantic import BaseModel, Field
 
 class ChatRequest(BaseModel):
 
-    query: str
-
-    file_path: str | None = None
-
+    query: str = Field(
+        description="User query"
+    )
 
 class Citation(BaseModel):
 
-    source: str
+    source: str = Field(
+        description="Source of the citation"
+    )
 
     page: int
 

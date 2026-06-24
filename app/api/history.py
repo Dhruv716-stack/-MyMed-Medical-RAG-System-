@@ -1,8 +1,8 @@
 from fastapi import APIRouter
 
-from schemas.common_schema import APIResponse
+from app.schemas.common_schema import APIResponse
 
-from services.history_service import (
+from app.services.history_service import (
     get_history
 )
 

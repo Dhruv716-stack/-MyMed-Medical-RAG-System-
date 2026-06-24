@@ -1,0 +1,18 @@
+2026-06-24 17:52:49,172 | INFO | GET / 200 0.047s
+2026-06-24 17:52:49,461 | INFO | GET /favicon.ico 404 0.0s
+2026-06-24 17:54:42,002 | INFO | GET /docs 200 0.0s
+2026-06-24 17:54:43,547 | INFO | GET /openapi.json 200 0.01s
+2026-06-24 17:55:54,858 | INFO | GET /health 200 4.448s
+2026-06-24 17:57:08,211 | INFO | GET /history 200 0.011s
+2026-06-24 17:57:59,534 | INFO | HTTP Request: POST https://api.groq.com/openai/v1/chat/completions "HTTP/1.1 200 OK"
+2026-06-24 17:57:59,568 | INFO | POST /chat 200 0.713s
+2026-06-24 18:07:41,218 | INFO | GET /docs 200 0.0s
+2026-06-24 18:07:41,537 | INFO | GET /openapi.json 200 0.009s
+2026-06-24 18:07:49,238 | INFO | GET /docs 200 0.0s
+2026-06-24 18:07:49,295 | INFO | GET /openapi.json 200 0.0s
+2026-06-24 18:13:13,603 | INFO | GET / 200 0.012s
+2026-06-24 18:13:22,732 | INFO | GET /docs 200 0.0s
+2026-06-24 18:13:22,869 | INFO | GET /openapi.json 200 0.012s
+2026-06-24 18:13:51,270 | INFO | HTTP Request: POST https://api.groq.com/openai/v1/chat/completions "HTTP/1.1 200 OK"
+2026-06-24 18:13:52,388 | INFO | HTTP Request: POST https://api.groq.com/openai/v1/chat/completions "HTTP/1.1 200 OK"
+2026-06-24 18:13:52,413 | INFO | POST /chat 200 3.126s

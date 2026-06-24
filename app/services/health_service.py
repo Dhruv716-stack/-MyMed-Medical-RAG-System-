@@ -18,17 +18,18 @@ def health_check():
 
         client.get_collections()
 
-    except:
+    except Exception:
 
         qdrant_ok = False
 
     try:
 
         requests.get(
-            "http://localhost:11434"
+            "http://localhost:11434",
+            timeout=3
         )
 
-    except:
+    except Exception:
 
         ollama_ok = False
 
@@ -38,7 +39,7 @@ def health_check():
 
         conn.close()
 
-    except:
+    except Exception:
 
         db_ok = False
 

@@ -1,16 +1,10 @@
 from fastapi import APIRouter
 
-from schemas.chat_schema import (
-    ChatRequest
-)
+from app.schemas.chat_schema import ChatRequest
 
-from schemas.common_schema import (
-    APIResponse
-)
+from app.schemas.common_schema import APIResponse
 
-from services.chat_services import (
-    chat
-)
+from app.services.chat_services import chat
 
 
 router = APIRouter(
@@ -34,8 +28,6 @@ def chat_endpoint(
     result = chat(
 
         query=request.query,
-
-        file_path=request.file_path
     )
 
     return APIResponse(

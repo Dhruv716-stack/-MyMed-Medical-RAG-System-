@@ -1,8 +1,8 @@
 from fastapi import APIRouter
 
-from schemas.common_schema import APIResponse
+from app.schemas.common_schema import APIResponse
 
-from services.health_service import (
+from app.services.health_service import (
     health_check
 )
 

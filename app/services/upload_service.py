@@ -1,9 +1,15 @@
 import shutil
+
 from pathlib import Path
+
+from app.core.singleton import get_pipeline
+
 
 UPLOAD_DIR = "uploads"
 
-Path(UPLOAD_DIR).mkdir(
+Path(
+    UPLOAD_DIR
+).mkdir(
     exist_ok=True
 )
 
@@ -24,4 +30,35 @@ def save_file(file):
             buffer
         )
 
-    return str(save_path)
+    saved_path = str(
+        save_path
+    )
+
+    # --------------------------
+    # Index document
+    # --------------------------
+
+    pipeline = get_pipeline()
+
+    pipeline.ingest(
+
+        file_path=saved_path,
+
+        force_reindex=False
+    )
+
+    # --------------------------
+    # Make uploaded document
+    # active for future chats
+    # --------------------------
+
+    pipeline.active_file = saved_path
+
+    return {
+
+        "filename": file.filename,
+
+        "path": saved_path,
+
+        "indexed": True
+    }

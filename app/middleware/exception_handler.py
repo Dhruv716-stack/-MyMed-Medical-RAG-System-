@@ -4,7 +4,7 @@ from fastapi.responses import (
     JSONResponse
 )
 
-from utils.logger import logger
+from app.utils.logger import logger
 
 
 async def global_exception_handler(
@@ -15,6 +15,7 @@ async def global_exception_handler(
 
 ):
 
+    
     logger.exception(
 
         str(exc)

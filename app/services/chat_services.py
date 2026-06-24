@@ -1,38 +1,70 @@
 import time
 
-from core.singleton import pipeline
+from app.core.singleton import get_pipeline
 
-
+pipeline=get_pipeline()
 def chat(
-
-        query: str,
-
-        file_path: str = None
-
+    query: str,
 ):
+    """
+    Main chat service.
+
+    - Handles Swagger's default 'string' value.
+    - Falls back to normal chat/RAG routing when no file is supplied.
+    - Measures latency.
+    - Prevents API crashes from bubbling up.
+    """
+
+    # ----------------------------------
+    # Normalize file path
+    # ----------------------------------
+
+    if file_path in (
+        None,
+        "",
+        "string",
+        "null",
+        "None"
+    ):
+        file_path = None
 
     start = time.time()
 
-    answer = pipeline.run(
+    try:
 
-        query=query,
+        answer = pipeline.run(
 
-        file_path=file_path
+            query=query,
+        )
 
-    )
+        latency = round(
+            time.time() - start,
+            2
+        )
 
-    latency = round(
+        return {
 
-        time.time() - start,
+            "answer": answer,
 
-        2
-    )
+            "citations": [],
 
-    return {
+            "latency": latency
+        }
 
-        "answer": answer,
+    except Exception as e:
 
-        "citations": [],
+        latency = round(
+            time.time() - start,
+            2
+        )
 
-        "latency": latency
-    }
+        return {
+
+            "answer": None,
+
+            "citations": [],
+
+            "latency": latency,
+
+            "error": str(e)
+        }
