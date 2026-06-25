@@ -101,16 +101,3 @@ def api_status():
 
         "error": None
     }
-
-
-# ==========================
-# WEB UI (test only) -- REMOVABLE
-# To drop the test UI: delete the 3 statements below and the app/web/ folder.
-# ==========================
-
-from fastapi.responses import FileResponse   # WEB UI (test only)
-from pathlib import Path                      # WEB UI (test only)
-
-@app.get("/")                                 # WEB UI (test only)
-def serve_ui():                               # WEB UI (test only)
-    return FileResponse(Path(__file__).parent / "web" / "index.html")  # WEB UI (test only)

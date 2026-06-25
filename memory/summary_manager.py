@@ -1,10 +1,11 @@
 from memory.database import SessionLocal
 from memory.memory_models import ConversationSummary
-
+DEFAULT_USER = "local_user"
+DEFAULT_SESSION = "chat_1"
 
 def get_summary(
-    user_id: str,
-    session_id: str
+    user_id: str=DEFAULT_USER,
+    session_id: str=DEFAULT_SESSION
 ) -> str:
 
     db = SessionLocal()
@@ -44,8 +45,8 @@ def get_summary(
 
 def save_summary(
     summary: str,
-    user_id: str,
-    session_id: str
+    user_id: str=DEFAULT_USER,
+    session_id: str=DEFAULT_SESSION
 ) -> None:
 
     db = SessionLocal()

@@ -1,41 +1,41 @@
-from memory.memory_manager import (
-    get_recent_history
-)
-
-from memory.summary_manager import (
-    get_summary
-)
+from memory.memory_manager import get_recent_history
+from memory.summary_manager import get_summary
 
 from rag_pipeline.config import (
     ENABLE_SUMMARY_MEMORY,
     RECENT_MEMORY_LIMIT
 )
 
+DEFAULT_USER = "local_user"
+DEFAULT_SESSION = "chat_1"
+
 
 def build_memory_context(
-    user_id=None,
-    session_id=None
+    user_id: str=DEFAULT_USER,
+    session_id: str=DEFAULT_SESSION,
 ):
 
-    kwargs = {}
-    if user_id is not None:
-        kwargs["user_id"] = user_id
-    if session_id is not None:
-        kwargs["session_id"] = session_id
-
     recent_history = get_recent_history(
+
         limit=RECENT_MEMORY_LIMIT,
-        **kwargs
+
+        user_id=user_id,
+
+        session_id=session_id
     )
 
     if not ENABLE_SUMMARY_MEMORY:
 
         return recent_history
 
-    summary = get_summary(**kwargs)
+    summary = get_summary(
+
+        user_id=user_id,
+
+        session_id=session_id
+    )
 
     return f"""
-
 Conversation Summary:
 
 {summary}
@@ -44,5 +44,4 @@ Conversation Summary:
 Recent Conversation:
 
 {recent_history}
-
 """
