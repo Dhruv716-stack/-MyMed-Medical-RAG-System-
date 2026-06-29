@@ -1,0 +1,272 @@
+
+## What I'll build
+
+It will be a **completely separate frontend**. I will **not modify a single backend file**.
+
+New folder:
+
+```text
+frontend/
+│
+├── public/
+├── src/
+│   ├── assets/
+│   ├── components/
+│   ├── pages/
+│   ├── hooks/
+│   ├── services/
+│   ├── context/
+│   ├── layouts/
+│   ├── styles/
+│   ├── utils/
+│   ├── App.jsx
+│   └── main.jsx
+│
+├── package.json
+├── vite.config.js
+└── ...
+```
+
+---
+
+# Theme
+
+### Colors
+
+* Matte Black
+* White
+* Soft Gray
+* Very subtle medical blue highlights
+* Frosted glass panels
+* Smooth animations
+* Rounded cards
+* Premium typography
+
+Think:
+
+* Apple
+* OpenAI
+* Perplexity
+* Notion
+
+combined with a medical dashboard.
+
+---
+
+# Homepage
+
+Not a boring login page.
+
+A landing page with
+
+* animated DNA
+* heartbeat line
+* floating medical icons
+* AI visualization
+* glass hero section
+* feature cards
+* responsive design
+
+Buttons
+
+```text
+Get Started
+
+Login
+
+Learn More
+```
+
+---
+
+# Authentication
+
+Beautiful centered card
+
+Login
+
+Register
+
+Animated transition
+
+JWT integration ready
+
+---
+
+# Chat Screen
+
+This will be the main attraction.
+
+Layout
+
+```
+-----------------------------------------------------
+Sidebar          |         Chat Window
+                 |
+ New Chat        |     User
+ Sessions        |
+ Uploads         |     AI Response
+ History         |
+ Summary         |     Citations
+ Documents       |
+ Settings        |
+-----------------------------------------------------
+```
+
+---
+
+# Chat Features
+
+ChatGPT-like
+
+Typing animation
+
+Markdown
+
+Code blocks
+
+Citations
+
+Latency badge
+
+Upload button
+
+Medical theme
+
+---
+
+# Upload Panel
+
+Drag & Drop
+
+Animated upload
+
+Progress bar
+
+Uploaded documents list
+
+---
+
+# History
+
+Sessions
+
+Search
+
+Recent Chats
+
+Delete Chat
+
+---
+
+# Summary
+
+Conversation summary card
+
+Beautiful timeline
+
+---
+
+# Health
+
+Green indicators
+
+```
+Qdrant
+
+Memory
+
+LLM
+
+API
+
+Database
+```
+
+---
+
+# Mobile
+
+Fully responsive
+
+Tablet
+
+Desktop
+
+Phone
+
+---
+
+# Tech Stack
+
+
+```
+React
+
+Vite
+
+React Router
+
+Axios
+
+React Markdown
+
+Framer Motion
+
+Lucide Icons
+
+CSS Modules
+
+No Tailwind
+```
+---
+
+# Backend Integration
+
+
+```
+POST /auth/login
+
+POST /auth/register
+
+POST /chat
+
+POST /upload
+
+GET /history
+
+GET /summary
+
+GET /sessions
+
+POST /sessions
+
+GET /health
+```
+
+The frontend will be wired to these endpoints without changing your FastAPI code.
+
+---
+
+# Important
+
+I **will not touch**:
+
+* FastAPI
+* Memory
+* RAG Pipeline
+* JWT
+* Services
+* Database
+* Schemas
+
+The frontend will live entirely inside:
+
+```
+frontend/
+```
+
+so you can delete it, replace it, or deploy it independently.
+
+---
+
