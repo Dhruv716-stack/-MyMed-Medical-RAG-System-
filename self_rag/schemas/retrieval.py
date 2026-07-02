@@ -107,35 +107,42 @@ class RetrievalRequest(BaseModel):
 
 class RetrievalDecision(BaseModel):
     """
-    Decision returned by Retrieval Critic.
+    Decision produced by the Retrieval Critic.
     """
 
-    model_config = ConfigDict(extra="ignore")
+    model_config = ConfigDict(
+        extra="forbid",
+        validate_assignment=True,
+    )
 
     sufficient_context: bool = Field(
         ...,
-        description="Whether retrieved context is sufficient.",
+        description="Whether the retrieved context is sufficient.",
     )
 
     retrieval_confidence: float = Field(
         ...,
         ge=0.0,
         le=1.0,
+        description="Overall retrieval confidence.",
     )
 
     suggested_top_k: int = Field(
-        default=5,
+        ...,
         ge=1,
         le=50,
+        description="Suggested Top-K for the next retrieval.",
     )
 
     reasoning: str = Field(
         ...,
-        description="Reasoning behind the decision.",
+        min_length=1,
+        description="Reasoning returned by the critic.",
     )
 
     reflection_metadata: dict[str, Any] = Field(
         default_factory=dict,
+        description="Additional reflection metadata.",
     )
 
 

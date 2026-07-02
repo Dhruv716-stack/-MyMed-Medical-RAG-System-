@@ -33,6 +33,7 @@ from .confidence import (
     ConfidenceResult,
     ConfidenceThresholds,
 )
+from .pipeline import PipelineMetrics, SelfRAGPipelineResult
 
 __all__ = [
     "RetrievedChunk",
@@ -63,4 +64,6 @@ __all__ = [
     "ConfidenceThresholds",
     "ConfidenceMetrics",
     "ConfidenceEngineOutput",
+    "PipelineMetrics",
+    "SelfRAGPipelineResult",
 ]

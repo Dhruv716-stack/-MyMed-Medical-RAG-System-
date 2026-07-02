@@ -51,7 +51,7 @@ Never explain your reasoning outside JSON.
 JSON_SCHEMA = {
     "retrieval_confidence": "float (0.0-1.0)",
     "sufficient_context": "boolean",
-    "recommended_top_k": "integer",
+    "suggested_top_k": "integer",
     "reasoning": "string",
     "reflection_metadata": {
         "relevance": "float",
