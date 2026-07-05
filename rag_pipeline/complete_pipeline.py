@@ -4,6 +4,7 @@ from typing import Dict
 from pathlib import Path
 import traceback
 import time
+from unittest import result
 
 from langsmith import trace, traceable
 from sqlalchemy import false
@@ -74,6 +75,13 @@ from generation.generate import generate_answer
 
 from generation.structured_output import clean_output
 # =========================================================
+# SELF-RAG
+# =========================================================
+from self_rag.pipeline import SelfRAGPipeline
+
+from self_rag.utils.documents import chunks_to_documents
+
+# =========================================================
 # MEMORY
 # =========================================================
 
@@ -136,6 +144,11 @@ class MedicalRAGPipeline:
         self.chat_history = ""
 
         self.intent = ""
+        self.self_rag_enabled = True
+        self.self_rag_result = None
+        self.self_rag = SelfRAGPipeline(
+        router=lambda _query: self.intent or "MEDICAL_RAG"
+        )
     # =====================================================
     # LOGGER
     # =====================================================
@@ -547,7 +560,30 @@ class MedicalRAGPipeline:
             })
 
         return self
+    
+    def _sync_self_rag_state(self, result):
+        self.self_rag_result = result
+        self.queries = result.search_queries or [result.rewritten_query or result.query]
+        self.hybrid_results = []
+        self.mmr_results = []
+        self.reranked_docs = chunks_to_documents(result.retrieved_chunks)
+        self.filtered_docs = list(self.reranked_docs)
+        self.compressed_docs = chunks_to_documents(result.compressed_chunks)
+        self.final_answer = result.final_answer
 
+    def _run_self_rag(self, query, user_id=None, session_id=None, restrict_to_user_upload=False):
+        result = self.self_rag.run(
+            query=query,
+            docs=self.chunks or self.cleaned_docs,
+            user_id=user_id,
+            session_id=session_id,
+            restrict_to_user_upload=restrict_to_user_upload,
+            top_k=10,
+            expand_queries=False,
+        )   
+        self._sync_self_rag_state(result)
+        self.final_answer = result.final_answer
+        return result    
 
     # =====================================================
     # GENERATION
@@ -661,6 +697,115 @@ class MedicalRAGPipeline:
                 if user_id and session_id:
                     if get_uploaded_files(user_id=user_id, session_id=session_id):
                         restrict_to_user_upload = True
+                        
+                        
+                if self.self_rag_enabled:
+
+                    try:
+
+                        result=self._run_self_rag(
+                            query=query,
+                            user_id=user_id,
+                            session_id=session_id,
+                            restrict_to_user_upload=restrict_to_user_upload,
+                        )
+                        self.log("\n" + "=" * 70)
+                        self.log("SELF-RAG REPORT")
+                        self.log("=" * 70)
+
+                        retrieval = result.retrieval
+
+                        self.log(f"Success               : {retrieval.success}")
+                        self.log(f"Iterations            : {retrieval.retrieval_result.iterations}")
+                        self.log(f"Final Top K           : {retrieval.retrieval_result.final_top_k}")
+
+                        decision = retrieval.retrieval_result.retrieval_decision
+
+                        self.log(f"Retrieval Confidence  : {decision.retrieval_confidence:.3f}")
+                        self.log(f"Sufficient Context    : {decision.sufficient_context}")
+                        self.log(f"Suggested Top K       : {decision.suggested_top_k}")
+
+                        self.log(
+                            f"Overall Confidence    : "
+                            f"{result.confidence.confidence.overall_score:.3f}"
+                        )
+
+                        self.log(
+                            f"Final Confidence      : "
+                            f"{result.confidence.confidence.confidence_level}"
+                        )
+                        save_message(
+                            role="user",
+                            message=query,
+                            user_id=user_id or DEFAULT_USER,
+                            session_id=session_id or DEFAULT_SESSION,
+                        )
+                        save_message(
+                            role="assistant",
+                            message=self.final_answer,
+                            user_id=user_id or DEFAULT_USER,
+                            session_id=session_id or DEFAULT_SESSION,
+                        )
+
+                        if not debug:
+                            return self.final_answer
+
+                        return {
+                            "query": query,
+                            "generated_queries": self.queries,
+                            "retrieved_docs": self.reranked_docs,
+                            "compressed_docs": self.compressed_docs,
+                            "answer": self.final_answer,
+                            "self_rag": self.self_rag_result.model_dump(mode="json"),
+                        }
+
+                    except Exception as exc:
+
+                        self.log(
+                             f"Self-RAG failed: {exc}"
+                        )
+                        self.prepare_query(
+                        f"""
+                        Previous Conversation:
+
+                        {memory_context}
+
+                        Current Question:
+
+                        {query}
+                        """
+                        )
+
+                        self.retrieve(user_id=user_id, session_id=session_id, restrict_to_user_upload=restrict_to_user_upload)
+
+                        self.post_retrieval()
+
+                        self.generate()
+            
+                        save_message(
+                            role="user",
+                            message=query,
+                            user_id=user_id or DEFAULT_USER,
+                            session_id=session_id or DEFAULT_SESSION
+                        )
+
+                        save_message(
+                            role="assistant",
+                            message=self.final_answer,
+                            user_id=user_id or DEFAULT_USER,
+                            session_id=session_id or DEFAULT_SESSION
+                        )
+                        if not debug:
+                            return self.final_answer
+
+                        return {
+                            "query": query,
+                            "generated_queries": self.queries,
+                            "retrieved_docs": self.reranked_docs,
+                            "compressed_docs": self.compressed_docs,
+                            "answer": self.final_answer,
+                            "fallback": True,
+                            "error": str(exc),}
 
             # -----------------------------------
             # QUERY PIPELINE
@@ -697,37 +842,37 @@ class MedicalRAGPipeline:
                   )
                   return answer
             
-            self.prepare_query(
-               f"""
-                Previous Conversation:
+            # self.prepare_query(
+            #    f"""
+            #     Previous Conversation:
 
-                {memory_context}
+            #     {memory_context}
 
-                Current Question:
+            #     Current Question:
 
-                {query}
-              """
-            )
+            #     {query}
+            #   """
+            # )
 
-            self.retrieve(user_id=user_id, session_id=session_id, restrict_to_user_upload=restrict_to_user_upload)
+            # self.retrieve(user_id=user_id, session_id=session_id, restrict_to_user_upload=restrict_to_user_upload)
 
-            self.post_retrieval()
+            # self.post_retrieval()
 
-            self.generate()
+            # self.generate()
             
-            save_message(
-                role="user",
-                message=query,
-                user_id=user_id or DEFAULT_USER,
-                session_id=session_id or DEFAULT_SESSION
-            )
+            # save_message(
+            #     role="user",
+            #     message=query,
+            #     user_id=user_id or DEFAULT_USER,
+            #     session_id=session_id or DEFAULT_SESSION
+            # )
 
-            save_message(
-                role="assistant",
-                message=self.final_answer,
-                user_id=user_id or DEFAULT_USER,
-                session_id=session_id or DEFAULT_SESSION
-            )
+            # save_message(
+            #     role="assistant",
+            #     message=self.final_answer,
+            #     user_id=user_id or DEFAULT_USER,
+            #     session_id=session_id or DEFAULT_SESSION
+            # )
 
             rt.add_metadata({
 
@@ -787,7 +932,12 @@ class MedicalRAGPipeline:
                 self.compressed_docs,
 
                 "answer":
-                self.final_answer
+                self.final_answer,
+                
+                "self_rag": (
+                    self.self_rag_result.model_dump(mode="json")
+                    if self.self_rag_result else None
+                )
             }
 
         except Exception as e:
