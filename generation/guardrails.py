@@ -1,59 +1,22 @@
 from typing import List
 from dotenv import load_dotenv
 from langchain_core.documents import Document
-from langchain_ollama import ChatOllama
-from langchain_core.prompts import ChatPromptTemplate
-from langchain_core.output_parsers import StrOutputParser
 
 load_dotenv()
 
 
 # =========================================================
-# DOMAIN CLASSIFIER
-# LLM uses its own knowledge to judge intent
+# DOMAIN CLASSIFIER — REMOVED
 # =========================================================
-
-_domain_model = ChatOllama(
-    model="qwen2.5:3b",
-    temperature=0.0,
-    base_url="http://localhost:11434",
-)
-
-DOMAIN_CHECK_PROMPT = """
-You are a classifier for a medical and health document assistant.
-
-Determine if the following query is something a person would ask
-when looking for information in medical, health, or scientific
-health documents.
-
-This includes anything a person might look up in:
-- Medical textbooks or clinical guidelines
-- Public health or environmental health documents
-- Health safety, sanitation, or water quality standards
-- Pharmaceutical, biological, or chemical health research
-- Any scientific or technical topic related to human health
-
-Return ONLY one word: YES or NO
-
-Query: {query}
-"""
-
-
-def is_medical_query(query: str) -> bool:
-    """
-    Returns True if query is medical/health related.
-    Uses open-ended LLM classification — no hardcoded keyword list.
-    Handles any medical term including those not explicitly listed.
-    """
-    try:
-        prompt = ChatPromptTemplate.from_template(DOMAIN_CHECK_PROMPT)
-        chain  = prompt | _domain_model | StrOutputParser()
-        result = chain.invoke({"query": query}).strip().upper()
-        return "YES" in result
-    except Exception:
-        # If classifier fails for any reason, allow the query through
-        # Better to allow a non-medical query than block a valid one
-        return True
+# A previous version used a local qwen2.5:3b LLM to classify whether a
+# query was "medical" and blocked anything it judged non-medical. This
+# backfired for a document-grounded RAG: valid questions whose answers
+# ARE in the uploaded documents (communication in end-of-life care,
+# ethics, advance directives, catchment-to-consumer risk management) were
+# wrongly rejected and scored 0 faithfulness. Scope is now governed by
+# retrieval + validate_context(): if the documents cover the question,
+# context is retrieved and the question is answered; if not, the answer
+# falls back gracefully. No LLM call is needed for query validation.
 
 
 # =========================================================
@@ -87,13 +50,19 @@ MAX_QUERY_LENGTH   = 500
 
 def validate_query(query: str) -> bool:
     """
-    Validates query through 3 checks in order:
+    Validates query through 2 lightweight, LLM-free checks:
 
     1. Input length    — rejects queries over 500 chars
     2. Prompt injection — blocks known attack phrases
-    3. Domain scope    — LLM checks if medical/health related
-                         Uses open-ended prompt so ANY valid
-                         medical term passes through correctly
+
+    NOTE: The previous "domain scope" check (an LLM classifier asking
+    "is this medical?") was REMOVED. For a document-grounded RAG, scope
+    is determined by what the retriever finds, not by the query's topic.
+    A topic filter wrongly blocked valid questions whose answers ARE in
+    the uploaded documents (e.g. communication, ethics, advance directives,
+    catchment risk management). Relevance is now enforced by retrieval +
+    validate_context() below, so off-topic queries simply retrieve no
+    usable context and fall back gracefully — no LLM call required.
     """
 
     # Check 1 — input length
@@ -106,12 +75,6 @@ def validate_query(query: str) -> bool:
     for phrase in BLOCKED_PHRASES:
         if phrase in query_lower:
             return False
-
-    # Check 3 — domain scope
-    # LLM-based — handles all medical terms naturally
-    # No keyword list = no false blocks on valid medical queries
-    if not is_medical_query(query):
-        return False
 
     return True
 

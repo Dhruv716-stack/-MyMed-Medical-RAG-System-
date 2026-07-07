@@ -97,6 +97,56 @@ def get_recent_history(
         for r in rows
     )
 
+def search_messages(
+    query,
+    user_id=DEFAULT_USER,
+    limit=50,
+):
+    """
+    Global search across ALL of this user's chats.
+
+    Read-only: does a case-insensitive substring (LIKE) match on the message
+    text, scoped strictly to this user_id so results can never leak another
+    user's messages. Returns a list of matches newest-first, each carrying the
+    session_id so the frontend can jump to the right chat.
+    """
+
+    db = SessionLocal()
+
+    try:
+        q = (query or "").strip()
+        if not q:
+            return []
+
+        # Escape LIKE wildcards so a literal % or _ in the query is matched
+        # as text, not treated as a wildcard.
+        safe = q.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
+        pattern = f"%{safe}%"
+
+        rows = (
+            db.query(ChatMessage)
+            .filter(
+                ChatMessage.user_id == user_id,
+                ChatMessage.message.ilike(pattern, escape="\\"),
+            )
+            .order_by(ChatMessage.id.desc())
+            .limit(limit)
+            .all()
+        )
+
+        return [
+            {
+                "session_id": r.session_id,
+                "role": r.role,
+                "message": r.message,
+            }
+            for r in rows
+        ]
+
+    finally:
+        db.close()
+
+
 def get_message_count(
     user_id=DEFAULT_USER,
     session_id=DEFAULT_SESSION

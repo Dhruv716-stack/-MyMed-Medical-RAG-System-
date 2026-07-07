@@ -104,13 +104,18 @@ def api_status():
 
 
 # ==========================
-# WEB UI (test only) -- REMOVABLE
-# To drop the test UI: delete the 3 statements below and the app/web/ folder.
+# WEB UI  (served at "/")  -- self-contained frontend in app/web/
+# To remove the UI entirely: delete the statements below and app/web/.
 # ==========================
 
-from fastapi.responses import FileResponse   # WEB UI (test only)
-from pathlib import Path                      # WEB UI (test only)
+from fastapi.responses import FileResponse
+from pathlib import Path
 
-@app.get("/")                                 # WEB UI (test only)
-def serve_ui():                               # WEB UI (test only)
-    return FileResponse(Path(__file__).parent / "web" / "index.html")  # WEB UI (test only)
+@app.get("/")
+def serve_ui():
+    # no-store: always serve the latest index.html so browsers never show a
+    # stale cached copy of the UI after it is updated.
+    return FileResponse(
+        Path(__file__).parent / "web" / "index.html",
+        headers={"Cache-Control": "no-store, no-cache, must-revalidate"},
+    )

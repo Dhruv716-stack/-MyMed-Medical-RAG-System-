@@ -208,8 +208,19 @@ class MedicalRAGPipeline:
             # -----------------------------------
             
             
+            # User uploads must ALWAYS be indexed, never skipped by the
+            # file-hash cache. The cache keys on file path only, so the same
+            # PDF uploaded by different users/sessions would otherwise be
+            # skipped after the first time — leaving the new user's chunks
+            # WITHOUT their user_id/session_id tags. Retrieval then filters
+            # to "this user's chunks only" and finds nothing, producing
+            # "documents do not contain enough information". Forcing indexing
+            # for user_upload guarantees each upload gets its own tenant tags.
+            is_user_upload = (source_type == "user_upload")
+
             should_reindex = (
                force_reindex
+               or is_user_upload
                or needs_reindex(file_path)
             )
 

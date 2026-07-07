@@ -3,6 +3,7 @@ import argparse
 import json
 import os
 import sys
+import time
 from pathlib import Path
 
 import numpy as np
@@ -70,8 +71,21 @@ CACHE_PATH        = base_root / "evaluation" / "dataset_dict_cache.json"
 # CONTEXT TRUNCATION
 # =========================================================
 
-MAX_CONTEXTS = 3
-MAX_CHARS    = 600
+# Raised from (3, 600) so the RAGAS judge sees enough of the retrieved
+# context to verify grounded claims. The 120B generator writes answers
+# grounded in the FULL context; the old 600-char/3-context window hid the
+# supporting text from the judge, causing valid claims to be scored as
+# "unsupported" (artificially low faithfulness). Higher values cost more
+# judge tokens — at (5, 1500) one full 40-question run fits the Groq free
+# tier (500K TPD); 2 runs/day would exceed it.
+MAX_CONTEXTS = 5
+MAX_CHARS    = 1500
+
+# Cerebras gpt-oss-120b free tier allows 5 requests/min. Each eval question
+# makes one generation call, so we space calls ~12s apart to stay under the
+# limit. Helper models (query rewrite/compression) run locally on Ollama and
+# don't count against this. Set to 0 to disable (e.g. on a paid tier).
+GEN_REQUEST_DELAY_SECONDS = 12
 
 
 def truncate_to_sentences(text: str, max_chars: int = MAX_CHARS) -> str:
@@ -176,7 +190,7 @@ def run_rag_pipeline(eval_data, paths: list) -> dict:
 
     # Index into Qdrant once
     create_collection()
-    index_documents(all_chunks)
+    index_documents(all_chunks, "|".join(map(str, paths)))
 
     rag = MedicalRAGPipeline(verbose=False)
 
@@ -206,6 +220,11 @@ def run_rag_pipeline(eval_data, paths: list) -> dict:
         contexts.append(retrieved_contexts)
 
         print(f"Completed: {question}")
+
+        # Throttle to respect Cerebras free-tier 5 req/min limit on the
+        # generation model. Skipped after the last question.
+        if GEN_REQUEST_DELAY_SECONDS and item is not eval_data[-1]:
+            time.sleep(GEN_REQUEST_DELAY_SECONDS)
 
     dataset_dict = {
         "question"    : questions,
