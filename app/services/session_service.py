@@ -34,6 +34,7 @@ def create_session(user_id: str, title: str = "New Chat") -> dict:
 
         db.add(session)
         db.commit()
+        db.refresh(session)
 
         return {
             "session_id": session.session_id,

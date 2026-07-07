@@ -54,6 +54,7 @@ def register(email: str, password: str, username: str = None) -> dict:
 
         db.add(user)
         db.commit()
+        db.refresh(user)
 
         return {
             "ok": True,

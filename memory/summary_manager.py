@@ -1,86 +1,96 @@
 from memory.database import SessionLocal
 from memory.memory_models import ConversationSummary
-
-
 DEFAULT_USER = "local_user"
 DEFAULT_SESSION = "chat_1"
 
-
 def get_summary(
-    user_id=DEFAULT_USER,
-    session_id=DEFAULT_SESSION
-):
+    user_id: str=DEFAULT_USER,
+    session_id: str=DEFAULT_SESSION
+) -> str:
 
     db = SessionLocal()
 
-    row = (
+    try:
 
-        db.query(
-            ConversationSummary
+        row = (
+
+            db.query(
+                ConversationSummary
+            )
+
+            .filter(
+                ConversationSummary.user_id == user_id
+            )
+
+            .filter(
+                ConversationSummary.session_id == session_id
+            )
+
+            .first()
         )
 
-        .filter(
-            ConversationSummary.user_id == user_id
+        return (
+
+            row.summary
+
+            if row
+
+            else ""
         )
 
-        .filter(
-            ConversationSummary.session_id == session_id
-        )
+    finally:
 
-        .first()
-    )
-
-    db.close()
-
-    if row:
-
-        return row.summary
-
-    return ""
+        db.close()
 
 
 def save_summary(
     summary: str,
-    user_id=DEFAULT_USER,
-    session_id=DEFAULT_SESSION
-):
+    user_id: str=DEFAULT_USER,
+    session_id: str=DEFAULT_SESSION
+) -> None:
 
     db = SessionLocal()
 
-    row = (
+    try:
 
-        db.query(
-            ConversationSummary
+        row = (
+
+            db.query(
+                ConversationSummary
+            )
+
+            .filter(
+                ConversationSummary.user_id == user_id
+            )
+
+            .filter(
+                ConversationSummary.session_id == session_id
+            )
+
+            .first()
         )
 
-        .filter(
-            ConversationSummary.user_id == user_id
-        )
+        if row:
 
-        .filter(
-            ConversationSummary.session_id == session_id
-        )
+            row.summary = summary
 
-        .first()
-    )
+        else:
 
-    if row:
+            row = ConversationSummary(
 
-        row.summary = summary
+                user_id=user_id,
 
-    else:
+                session_id=session_id,
 
-        row = ConversationSummary(
+                summary=summary
+            )
 
-            user_id=user_id,
+            db.add(
+                row
+            )
 
-            session_id=session_id,
+        db.commit()
 
-            summary=summary
-        )
+    finally:
 
-        db.add(row)
-
-    db.commit()
-
-    db.close()
+        db.close()

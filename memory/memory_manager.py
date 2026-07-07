@@ -54,6 +54,62 @@ def save_message(
 
     db.close()
 
+    # ====================================
+    # AUTO UPDATE SUMMARY
+    # ====================================
+
+    if ENABLE_SUMMARY_MEMORY:
+
+        count = get_message_count(
+
+            user_id=user_id,
+
+            session_id=session_id
+        )
+
+        if (
+
+            count > 0
+
+            and
+
+            count % SUMMARY_UPDATE_INTERVAL == 0
+        ):
+
+            try:
+
+                old_summary = get_summary()
+
+                recent_history = get_recent_history(
+
+                    limit=SUMMARY_UPDATE_INTERVAL,
+
+                    user_id=user_id,
+
+                    session_id=session_id
+                )
+
+                new_summary = update_summary(
+
+                    old_summary,
+
+                    recent_history
+                )
+
+                save_summary(
+                    new_summary
+                )
+
+                print(
+                    "Conversation summary updated."
+                )
+
+            except Exception as e:
+
+                print(
+                    f"Summary update failed: {e}"
+                )
+
 # ==========================================
 # GET RECENT HISTORY
 # ==========================================
@@ -173,41 +229,3 @@ def get_message_count(
     db.close()
 
     return count
-
-# ====================================
-# AUTO UPDATE SUMMARY
-# ====================================
-if ENABLE_SUMMARY_MEMORY:
-
-    count = get_message_count()
-
-    if count > 0 and count % SUMMARY_UPDATE_INTERVAL == 0:
-
-        try:
-
-            old_summary = get_summary()
-
-            recent_history = get_recent_history(
-                limit=SUMMARY_UPDATE_INTERVAL
-            )
-
-            new_summary = update_summary(
-
-                old_summary,
-
-                recent_history
-            )
-
-            save_summary(
-                new_summary
-            )
-
-            print(
-                "Conversation summary updated."
-            )
-
-        except Exception as e:
-
-            print(
-                f"Summary update failed: {e}"
-            )

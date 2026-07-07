@@ -1,4 +1,5 @@
 import shutil
+import uuid
 
 from pathlib import Path
 
@@ -12,19 +13,80 @@ UPLOAD_DIR = "uploads"
 Path(
     UPLOAD_DIR
 ).mkdir(
+    parents=True,
     exist_ok=True
 )
 
 
 def save_file(
     file,
-    user_id: str = "default_user",
-    session_id: str = "default_session",
+    user_id: str,
+    session_id: str,
 ):
+    """
+    Save uploaded file.
 
-    save_path = Path(
-        UPLOAD_DIR
-    ) / file.filename
+    Flow:
+    Save file
+    -> Index into Qdrant
+    -> Register upload in DB
+    -> Set active document
+    -> Return upload metadata
+    """
+
+    # ----------------------------------
+    # Validation
+    # ----------------------------------
+
+    if not user_id:
+
+        raise ValueError(
+            "user_id is required"
+        )
+
+    if not session_id:
+
+        raise ValueError(
+            "session_id is required"
+        )
+
+    # ----------------------------------
+    # User-specific upload directory
+    # ----------------------------------
+
+    user_upload_dir = (
+
+        Path(UPLOAD_DIR)
+
+        / user_id
+    )
+
+    user_upload_dir.mkdir(
+        parents=True,
+        exist_ok=True
+    )
+
+    # ----------------------------------
+    # Unique filename
+    # ----------------------------------
+
+    unique_name = (
+
+        f"{uuid.uuid4()}_"
+
+        f"{file.filename}"
+    )
+
+    save_path = (
+
+        user_upload_dir
+
+        / unique_name
+    )
+
+    # ----------------------------------
+    # Save file
+    # ----------------------------------
 
     with open(
         save_path,
@@ -40,12 +102,9 @@ def save_file(
         save_path
     )
 
-    # --------------------------
-    # Index document as this
-    # user's private upload, so
-    # retrieval can be restricted
-    # to their own files only.
-    # --------------------------
+    # ----------------------------------
+    # Index document
+    # ----------------------------------
 
     pipeline = get_pipeline()
 
@@ -59,27 +118,28 @@ def save_file(
 
         session_id=session_id,
 
-        source_type="user_upload",
+        source_type="user_upload"
     )
 
-    # --------------------------
-    # Record the upload so the
-    # user sees it again when the
-    # session is reopened (same as
-    # the pipeline's own run()).
-    # --------------------------
+    # ----------------------------------
+    # Save upload metadata
+    # ----------------------------------
 
     save_uploaded_file(
+
         source_path=saved_path,
+
         original_filename=file.filename,
+
         user_id=user_id,
-        session_id=session_id,
+
+        session_id=session_id
     )
 
-    # --------------------------
-    # Make uploaded document
-    # active for future chats
-    # --------------------------
+    # ----------------------------------
+    # Temporary until Session table
+    # manages active documents
+    # ----------------------------------
 
     pipeline.active_file = saved_path
 
@@ -87,7 +147,7 @@ def save_file(
 
         "filename": file.filename,
 
-        "path": saved_path,
+        "document_id": unique_name,
 
         "indexed": True
     }

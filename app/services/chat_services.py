@@ -3,6 +3,8 @@ import time
 
 from app.core.singleton import get_pipeline
 
+from fastapi import HTTPException
+
 
 # ---------------------------------------------------------------------------
 # CITATION EXTRACTION
@@ -61,8 +63,8 @@ def extract_citations(answer):
 
 def chat(
     query: str,
-    user_id: str = "default_user",
-    session_id: str = "default_session",
+    user_id: str,
+    session_id: str
 ):
     """
     Main chat service.
@@ -116,14 +118,7 @@ def chat(
 
     except Exception as e:
 
-        latency = round(
-            time.time() - start,
-            2
-        )
-
-        return {
-            "answer": None,
-            "citations": [],
-            "latency": latency,
-            "error": str(e),
-        }
+      raise HTTPException(
+        status_code=500,
+        detail=str(e)
+      )

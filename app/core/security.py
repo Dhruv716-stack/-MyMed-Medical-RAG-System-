@@ -24,10 +24,17 @@ from jose import jwt, JWTError
 
 # Secret used to sign tokens. In production this MUST come from the
 # environment. The fallback only exists so local dev works out of the box.
-SECRET_KEY = os.getenv(
-    "JWT_SECRET_KEY",
-    "dev-only-insecure-change-me"
-)
+from dotenv import load_dotenv
+import os
+
+load_dotenv()
+
+SECRET_KEY = os.getenv("JWT_SECRET_KEY")
+
+if not SECRET_KEY:
+    raise RuntimeError(
+        "JWT_SECRET_KEY missing from environment"
+    )
 
 ALGORITHM = "HS256"
 
@@ -77,7 +84,8 @@ def create_access_token(user_id: str) -> str:
 
     payload = {
         "sub": user_id,      # 'sub' = subject = who this token belongs to
-        "exp": expire,       # 'exp' = when it stops being valid
+        "exp": expire, # 'exp' = when it stops being valid
+        "iat": datetime.now(timezone.utc), # 'iat' = when it was issued
     }
 
     return jwt.encode(payload, SECRET_KEY, algorithm=ALGORITHM)

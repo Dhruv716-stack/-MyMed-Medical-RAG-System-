@@ -74,6 +74,7 @@ langsmith
 pydantic
 numpy
 pandas
+pydantic-settings
 
 # =========================
 # Async / Performance

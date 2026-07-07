@@ -45,7 +45,10 @@ def register(request: RegisterRequest):
     )
 
 
-@router.post("/login")
+@router.post(
+    "/login",
+    response_model=APIResponse
+)
 def login(request: LoginRequest):
 
     result = login_service(
@@ -66,5 +69,6 @@ def login(request: LoginRequest):
             access_token=result["access_token"],
             user_id=result["user_id"],
             username=result.get("username"),
+            expires_in=604800
         ).model_dump(),
     )

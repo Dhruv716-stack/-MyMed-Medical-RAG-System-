@@ -9,7 +9,7 @@ load_dotenv()
 
 # Short generation task — Ollama is fine here
 model = ChatOllama(
-    model="qwen2.5:3b",
+    model="qwen2.5:1.5b",
     temperature=0.3,   # slight variation for diverse queries
     base_url="http://localhost:11434",
 )

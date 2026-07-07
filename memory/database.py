@@ -19,9 +19,12 @@ engine = create_engine(
 
     DATABASE_URL,
 
-    echo=False
-)
+    echo=False,
 
+    connect_args={
+        "check_same_thread": False
+    }
+)
 
 # ==========================================================
 # SESSION FACTORY

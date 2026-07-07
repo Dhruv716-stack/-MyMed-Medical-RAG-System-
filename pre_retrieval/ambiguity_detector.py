@@ -8,7 +8,7 @@ load_dotenv()
 
 # YES/NO task — qwen2.5:3b handles this perfectly, no Groq needed
 model = ChatOllama(
-    model="qwen2.5:3b",
+    model="qwen2.5:1.5b",
     temperature=0.0,   # deterministic for classification
     base_url="http://localhost:11434",
 )
