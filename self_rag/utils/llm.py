@@ -11,8 +11,8 @@ from __future__ import annotations
 import asyncio
 import json
 import re
-from collections.abc import Sequence
-from typing import Any
+from collections.abc import Awaitable, Sequence
+from typing import Any, cast
 
 from langchain_core.messages import AIMessage, HumanMessage, SystemMessage
 
@@ -140,11 +140,11 @@ async def ainvoke_llm(
 
     try:
         if hasattr(bound_llm, "ainvoke") and callable(bound_llm.ainvoke):
-            response = await bound_llm.ainvoke(prepared_messages)
+            response = await cast(Awaitable[Any], bound_llm.ainvoke(prepared_messages))
             return normalize_llm_response(response)
 
         if hasattr(bound_llm, "agenerate") and callable(bound_llm.agenerate):
-            response = await bound_llm.agenerate([prepared_messages])
+            response = await cast(Awaitable[Any], bound_llm.agenerate([prepared_messages]))
             return normalize_llm_response(response)
 
     except Exception as exc:
