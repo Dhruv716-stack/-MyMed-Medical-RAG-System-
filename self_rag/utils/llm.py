@@ -174,9 +174,21 @@ def extract_json_payload(raw_response: str) -> dict[str, Any]:
             payload = json.loads(candidate)
         except json.JSONDecodeError:
             snippet = _extract_first_balanced_object(candidate)
-            if snippet is None:
-                raise ValueError("No JSON object found in model response.")
-            payload = json.loads(snippet)
+            if snippet is not None:
+                payload = json.loads(snippet)
+            else:
+                # Last resort: the reply was very likely truncated by the token
+                # limit, so no balanced object exists. Try to close it rather
+                # than discard a usable evaluation.
+                repaired = _repair_truncated_object(candidate)
+                if repaired is None:
+                    raise ValueError("No JSON object found in model response.")
+                try:
+                    payload = json.loads(repaired)
+                except json.JSONDecodeError as exc:
+                    raise ValueError(
+                        "No JSON object found in model response."
+                    ) from exc
 
     if not isinstance(payload, dict):
         raise ValueError("Expected a JSON object in model response.")
@@ -192,6 +204,16 @@ def _bind_llm(
 ) -> Any:
     """
     Bind per-call LLM parameters when the client supports it.
+
+    Parameter names are provider specific. OpenAI/Cerebras-style clients take
+    ``max_tokens``, while Ollama's client rejects both ``max_tokens`` and
+    ``temperature`` as bound kwargs and expects ``num_predict``/``temperature``
+    inside ``options``. Binding blindly raised at call time:
+
+        TypeError: Client.chat() got an unexpected keyword argument 'temperature'
+
+    so the kwargs are shaped per client, and any failure falls back to the
+    unbound llm (the critics still work, just with the model's defaults).
     """
 
     if (
@@ -201,15 +223,42 @@ def _bind_llm(
     ):
         return llm
 
-    try:
-        bind_kwargs: dict[str, Any] = {}
+    if _is_ollama_client(llm):
+        options: dict[str, Any] = {}
         if temperature is not None:
-            bind_kwargs["temperature"] = temperature
+            options["temperature"] = temperature
         if max_tokens is not None:
-            bind_kwargs["max_tokens"] = max_tokens
+            # Ollama's equivalent of max_tokens.
+            options["num_predict"] = max_tokens
+        try:
+            return llm.bind(options=options)
+        except Exception:
+            return llm
+
+    bind_kwargs: dict[str, Any] = {}
+    if temperature is not None:
+        bind_kwargs["temperature"] = temperature
+    if max_tokens is not None:
+        bind_kwargs["max_tokens"] = max_tokens
+
+    try:
         return llm.bind(**bind_kwargs)
     except Exception:
         return llm
+
+
+def _is_ollama_client(llm: Any) -> bool:
+    """
+    True when ``llm`` is an Ollama chat client, whose parameters live in an
+    ``options`` dict rather than being top-level kwargs. Matched on the class
+    and its bases so subclasses/wrappers are recognised too.
+    """
+
+    return any(
+        "ollama" in klass.__name__.lower()
+        or "ollama" in getattr(klass, "__module__", "").lower()
+        for klass in type(llm).__mro__
+    )
 
 
 def _strip_code_fences(text: str) -> str:
@@ -257,6 +306,72 @@ def _extract_first_balanced_object(text: str) -> str | None:
                 return text[start : index + 1]
 
     return None
+
+
+def _repair_truncated_object(text: str) -> str | None:
+    """
+    Best-effort repair of a JSON object that was cut off mid-generation.
+
+    When a model hits its token limit the reply simply stops, so the object is
+    never closed and json.loads fails with e.g. "Unterminated string". Rather
+    than lose the whole evaluation, close whatever is still open: terminate a
+    dangling string, drop a trailing comma / partial key, then add the missing
+    brackets. Returns None when there is nothing salvageable.
+    """
+
+    start = text.find("{")
+    if start == -1:
+        return None
+
+    snippet = text[start:]
+
+    # Walk the text tracking string/escape state and the open bracket stack.
+    stack: list[str] = []
+    in_string = False
+    escape = False
+
+    for char in snippet:
+        if in_string:
+            if escape:
+                escape = False
+            elif char == "\\":
+                escape = True
+            elif char == '"':
+                in_string = False
+            continue
+
+        if char == '"':
+            in_string = True
+        elif char in "{[":
+            stack.append(char)
+        elif char in "}]":
+            if stack:
+                stack.pop()
+
+    repaired = snippet
+
+    # An unterminated string: close it (dropping a trailing escape first).
+    if in_string:
+        if escape:
+            repaired = repaired[:-1]
+        repaired += '"'
+
+    # Trailing comma or a partial "key": with no value yet -> trim back to the
+    # last complete value so the object stays valid.
+    repaired = repaired.rstrip()
+    while repaired and repaired[-1] in ",:":
+        repaired = repaired[:-1].rstrip()
+        if repaired.endswith('"'):
+            # Drop the orphaned key that had no value.
+            key_start = repaired.rfind('"', 0, len(repaired) - 1)
+            if key_start != -1:
+                repaired = repaired[:key_start].rstrip().rstrip(",").rstrip()
+
+    # Close everything still open, innermost first.
+    for opener in reversed(stack):
+        repaired += "}" if opener == "{" else "]"
+
+    return repaired or None
 
 
 def _coerce_messages(

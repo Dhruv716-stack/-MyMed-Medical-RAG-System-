@@ -352,12 +352,18 @@ class SelfRAGPipeline:
     def _get_llm(self) -> Any:
         """
         Resolve the LLM used by critics.
+
+        Defaults to the local Ollama critic model rather than the Cerebras
+        generation model: critique is a grading task, and reusing the
+        rate-limited generation model meant each reflective query burned 4-5
+        of its ~5 requests/minute. An explicit llm= passed to the constructor
+        still wins. See self_rag.utils.critic_model for the model choice.
         """
 
         if self._llm is None:
-            from generation.retrieve_model import model
+            from self_rag.utils.critic_model import critic_model
 
-            self._llm = model
+            self._llm = critic_model
 
         return self._llm
 
