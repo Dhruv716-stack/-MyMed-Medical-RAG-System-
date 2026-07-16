@@ -8,7 +8,7 @@ load_dotenv()
 
 # Lightweight task — Ollama local, saves Groq TPM for generation only
 model = ChatOllama(
-    model="qwen2.5:1.5b",
+    model="qwen2.5:3b",
     temperature=0.1,
     base_url="http://localhost:11434",
 )

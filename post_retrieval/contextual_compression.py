@@ -1,10 +1,14 @@
+import logging
 import os
+from concurrent.futures import ThreadPoolExecutor
 from dotenv import load_dotenv
 from langchain_ollama import ChatOllama
 from langchain_core.documents import Document
 from langchain_core.output_parsers import StrOutputParser
 from langchain_core.prompts import ChatPromptTemplate
 from typing import List
+
+logger = logging.getLogger(__name__)
 
 # ── PREVIOUS IMPORTS (v1 — keep for easy rollback) ────────────────────────────
 # from langchain_classic.retrievers import ContextualCompressionRetriever
@@ -17,7 +21,7 @@ load_dotenv()
 # Compression is a summarization task — Ollama qwen2.5:3b handles it well
 # Keeps Groq TPM free for generation only
 compression_model = ChatOllama(
-    model="qwen2.5:1.5b",
+    model="qwen2.5:3b",
     temperature=0.0,
     base_url="http://localhost:11434",
 )
@@ -26,6 +30,14 @@ compression_model = ChatOllama(
 # v1 had no bypass — every chunk went through LLMChainExtractor regardless of size
 # Short chunks (≤400 chars) don't need compression; compressing them risks losing content
 _BYPASS_CHARS = 400
+# ──────────────────────────────────────────────────────────────────────────────
+
+# ── v4: how many chunks to compress at once ───────────────────────────────────
+# Ollama is local (no rate limit), so the real ceiling is the GPU: too many
+# concurrent generations just contend for VRAM and stop helping. 4 is a safe
+# default for a small/laptop GPU; raise it via COMPRESSION_MAX_WORKERS on
+# bigger hardware, or set it to 1 to restore the old sequential behaviour.
+MAX_COMPRESSION_WORKERS = max(1, int(os.getenv("COMPRESSION_MAX_WORKERS", "4")))
 # ──────────────────────────────────────────────────────────────────────────────
 
 # ── v3 CHANGE: conservative compression prompt ────────────────────────────────
@@ -63,10 +75,16 @@ def _compress_single(query: str, doc: Document) -> Document:
     if len(text) <= _BYPASS_CHARS:
         return doc
 
-    compressed_text = _compression_chain.invoke({
-        "query":   query,
-        "passage": text,
-    }).strip()
+    try:
+        compressed_text = _compression_chain.invoke({
+            "query":   query,
+            "passage": text,
+        }).strip()
+    except Exception as exc:
+        # v4: one failing chunk must not lose the whole batch — keep the
+        # original text for this doc and let the others through.
+        logger.warning("Compression failed for one chunk; keeping original: %s", exc)
+        return doc
 
     # Safety fallback: if model returns empty string, keep original content
     if not compressed_text:
@@ -83,6 +101,16 @@ def compress_documents(query: str, retriever_func, docs: List[Document]) -> List
     v3 — Conservative compression (less aggressive than v1 LLMChainExtractor).
     Preserves medical facts and bypasses short chunks to keep grounding context intact.
 
+    v4 — Compress chunks concurrently instead of one after another.
+
+    Each chunk is an independent LLM call, but they ran sequentially, so the
+    stage cost roughly (number of chunks x per-chunk latency) — the single
+    largest slice of query latency. Ollama is local, so firing them together
+    costs nothing in rate limits; throughput is bounded by the GPU, which is
+    what MAX_WORKERS caps. Behaviour is unchanged otherwise: results keep the
+    input (reranked) order, short chunks still bypass, and a failed or empty
+    response still falls back to the original document.
+
     To revert to v1 (LLMChainExtractor):
         1. Restore the old imports at the top of this file
         2. Replace this function body with the original SimpleRetriever + ContextualCompressionRetriever code
@@ -90,11 +118,19 @@ def compress_documents(query: str, retriever_func, docs: List[Document]) -> List
     if not docs:
         return []
 
-    compressed = []
-    for doc in docs:
-        compressed.append(_compress_single(query, doc))
+    # Only chunks above the bypass threshold cost an LLM call; no point
+    # spinning up more workers than there is real work.
+    billable = sum(1 for d in docs if len(d.page_content) > _BYPASS_CHARS)
 
-    return compressed
+    if billable <= 1:
+        return [_compress_single(query, doc) for doc in docs]
+
+    workers = min(MAX_COMPRESSION_WORKERS, billable)
+
+    with ThreadPoolExecutor(max_workers=workers) as pool:
+        # executor.map preserves input order, so the reranked ordering that
+        # downstream generation relies on is retained.
+        return list(pool.map(lambda d: _compress_single(query, d), docs))
 
 
 # ── v1 ORIGINAL compress_documents (keep for rollback reference) ───────────────

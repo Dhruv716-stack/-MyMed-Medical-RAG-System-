@@ -111,8 +111,14 @@ class SelfRAGSettings(BaseSettings):
         le=1.0,
     )
 
+    # 512 was too small for the critic prompts: their JSON schema contains a
+    # free-text "reasoning" field (plus "missing_information"/"missing_topics"
+    # lists), so replies were being cut off mid-string. The truncated text then
+    # failed json.loads with "Unterminated string", the critic raised
+    # "No JSON object found in model response.", and reflection silently fell
+    # back to the heuristic evaluation. 1536 leaves room for the whole object.
     REFLECTION_MAX_TOKENS: int = Field(
-        default=512,
+        default=1536,
         ge=64,
         le=4096,
     )
