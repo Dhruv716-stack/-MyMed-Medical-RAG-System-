@@ -36,10 +36,16 @@ Rewritten Query:
 def rewrite_query(query: str) -> str:
     prompt  = ChatPromptTemplate.from_template(QUERY_REWRITE_PROMPT)
     chain   = prompt | model | StrOutputParser()
-    result  = chain.invoke({"query": query}).strip()
 
-    # Safety: if model returns empty or too long, fall back to original
-    if not result or len(result) > 500:
-        return query
+    # Retry once to handle Ollama cold-start (model loading on first call)
+    for attempt in range(2):
+        try:
+            result = chain.invoke({"query": query}).strip()
+            if result and len(result) <= 500:
+                return result
+        except Exception:
+            if attempt == 0:
+                continue  # retry once
+            raise
 
-    return result
+    return query

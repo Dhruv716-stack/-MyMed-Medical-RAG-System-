@@ -31,7 +31,7 @@ def get_summary(
 
         return (
 
-            row.summary
+            row.summary  # type: ignore[return-value]
 
             if row
 
@@ -72,7 +72,7 @@ def save_summary(
 
         if row:
 
-            row.summary = summary
+            row.summary = summary  # type: ignore[assignment]
 
         else:
 

@@ -1,4 +1,4 @@
-from typing import List
+from typing import List, Optional
 from langchain_core.documents import Document
 
 from embeddings.model import embedding
@@ -213,8 +213,8 @@ def needs_reindex(
 def index_documents(
     docs: List[Document],
     file_path: str,
-    user_id: str = None,
-    session_id: str = None,
+    user_id: Optional[str] = None,
+    session_id: Optional[str] = None,
     source_type: str = "default"
 ):
 

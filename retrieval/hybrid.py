@@ -164,8 +164,8 @@ def _build_tenant_filter(
 def hybrid_retrieve(
     query: str,
     docs: List[Document],
-    user_id: str = None,
-    session_id: str = None,
+    user_id: Optional[str] = None,
+    session_id: Optional[str] = None,
     restrict_to_user_upload: bool = False
 ) -> List[Document]:
 

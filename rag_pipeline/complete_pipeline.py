@@ -1,9 +1,10 @@
 # pipeline.py
 
-from typing import Dict
+from typing import Dict, Optional
 from pathlib import Path
 import traceback
 import time
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from unittest import result
 
 from langsmith import trace, traceable
@@ -75,11 +76,9 @@ from generation.generate import generate_answer
 
 from generation.structured_output import clean_output
 # =========================================================
-# SELF-RAG
+# CORRECTIVE RAG (primary)
 # =========================================================
-from self_rag.pipeline import SelfRAGPipeline
-
-from self_rag.utils.documents import chunks_to_documents
+from corrective_rag.crag_pipeline import CRAGPipeline
 
 # =========================================================
 # MEMORY
@@ -144,11 +143,9 @@ class MedicalRAGPipeline:
         self.chat_history = ""
 
         self.intent = ""
-        self.self_rag_enabled = True
-        self.self_rag_result = None
-        self.self_rag = SelfRAGPipeline(
-        router=lambda _query: self.intent or "MEDICAL_RAG"
-        )
+        self.crag_enabled = True
+        self.crag_result = None
+        self.crag = CRAGPipeline()
     # =====================================================
     # LOGGER
     # =====================================================
@@ -169,8 +166,8 @@ class MedicalRAGPipeline:
         self,
         file_path: str,
         force_reindex: bool = False,
-        user_id: str = None,
-        session_id: str = None,
+        user_id: Optional[str] = None,
+        session_id: Optional[str] = None,
         source_type: str = "default"
     ):
 
@@ -304,23 +301,38 @@ class MedicalRAGPipeline:
             self.log("STEP 2 — QUERY PREPARATION")
             self.log("=" * 70)
 
-            try:
+            # -----------------------------------
+            # PARALLEL: rewrite + ambiguity check
+            # Both use Ollama on the original query,
+            # so they can run concurrently (~50ms saved)
+            # -----------------------------------
 
-               rewritten_query = rewrite_query(query)  
-            except Exception as e:
-                self.log(
-                    f"Rewrite failed: {e}"
-                )
+            rewritten_query = query
+            is_ambiguous = False
 
-                rewritten_query = query
+            with ThreadPoolExecutor(max_workers=2) as executor:
+                rewrite_future = executor.submit(rewrite_query, query)
+                ambiguity_future = executor.submit(is_ambiguous_llm, query)
+
+                try:
+                    rewritten_query = rewrite_future.result(timeout=30)
+                except Exception as e:
+                    self.log(f"Rewrite failed: {e}")
+                    rewritten_query = query
+
+                try:
+                    is_ambiguous = ambiguity_future.result(timeout=30)
+                except Exception as e:
+                    self.log(f"Ambiguity check failed: {e}")
+                    is_ambiguous = False
 
             queries = [rewritten_query]
 
             # -----------------------------------
-            # MULTI QUERY
+            # MULTI QUERY (only if ambiguous)
             # -----------------------------------
 
-            if is_ambiguous_llm(rewritten_query):
+            if is_ambiguous:
 
                 multi_queries = generate_multi_queries(
                     rewritten_query
@@ -369,7 +381,7 @@ class MedicalRAGPipeline:
 
     @traceable(name="Retrieval")
 
-    def retrieve(self, user_id: str = None, session_id: str = None, restrict_to_user_upload: bool = False):
+    def retrieve(self, user_id: Optional[str] = None, session_id: Optional[str] = None, restrict_to_user_upload: bool = False):
         print(
             "Chunks available:",
             len(self.chunks)
@@ -572,29 +584,34 @@ class MedicalRAGPipeline:
 
         return self
     
-    def _sync_self_rag_state(self, result):
-        self.self_rag_result = result
-        self.queries = result.search_queries or [result.rewritten_query or result.query]
-        self.hybrid_results = []
-        self.mmr_results = []
-        self.reranked_docs = chunks_to_documents(result.retrieved_chunks)
-        self.filtered_docs = list(self.reranked_docs)
-        self.compressed_docs = chunks_to_documents(result.compressed_chunks)
-        self.final_answer = result.final_answer
+    def _run_crag(self, query, user_id=None, session_id=None, restrict_to_user_upload=False):
+        """Run Corrective RAG: retrieve → grade → (web search) → compress → generate."""
 
-    def _run_self_rag(self, query, user_id=None, session_id=None, restrict_to_user_upload=False):
-        result = self.self_rag.run(
-            query=query,
-            docs=self.chunks or self.cleaned_docs,
+        # Step 1: Use the existing retrieval pipeline
+        self.prepare_query(query)
+        self.retrieve(
             user_id=user_id,
             session_id=session_id,
             restrict_to_user_upload=restrict_to_user_upload,
-            top_k=10,
-            expand_queries=False,
-        )   
-        self._sync_self_rag_state(result)
-        self.final_answer = result.final_answer
-        return result    
+        )
+
+        # Step 2: Run CRAG grading + web search on the reranked docs
+        crag_result = self.crag.run(
+            query=self.queries[0],
+            docs=self.reranked_docs,
+        )
+        self.crag_result = crag_result
+
+        # Step 3: CRAG returns docs with metadata preserved.
+        # Feed them through post_retrieval (contextual compression)
+        # which preserves per-doc metadata (PDF source, page numbers).
+        self.reranked_docs = crag_result.refined_docs
+        self.post_retrieval()
+
+        # Step 4: Generate answer using compressed docs (with metadata)
+        self.generate()
+
+        return crag_result
 
     # =====================================================
     # GENERATION
@@ -639,11 +656,11 @@ class MedicalRAGPipeline:
     def run(
     self,
     query,
-    file_path:str=None,
+    file_path: Optional[str]=None,
     force_reindex:bool=False,
     debug:bool=False,
-    user_id:str=None,
-    session_id:str=None,
+    user_id: Optional[str]=None,
+    session_id: Optional[str]=None,
     source_type:str="default"
     ):
         try:
@@ -652,8 +669,8 @@ class MedicalRAGPipeline:
                 start = time.time()
 
                 memory_context = build_memory_context(
-                    user_id=user_id,
-                    session_id=session_id
+                    user_id=user_id or DEFAULT_USER,
+                    session_id=session_id or DEFAULT_SESSION
                 )
                 
                 intent = classify_query(
@@ -710,41 +727,35 @@ class MedicalRAGPipeline:
                         restrict_to_user_upload = True
                         
                         
-                if self.self_rag_enabled:
+                if self.crag_enabled:
 
                     try:
 
-                        result=self._run_self_rag(
+                        crag_result = self._run_crag(
                             query=query,
                             user_id=user_id,
                             session_id=session_id,
                             restrict_to_user_upload=restrict_to_user_upload,
                         )
                         self.log("\n" + "=" * 70)
-                        self.log("SELF-RAG REPORT")
+                        self.log("CORRECTIVE RAG REPORT")
                         self.log("=" * 70)
 
-                        retrieval = result.retrieval
+                        grading = crag_result.grading_result
 
-                        self.log(f"Success               : {retrieval.success}")
-                        self.log(f"Iterations            : {retrieval.retrieval_result.iterations}")
-                        self.log(f"Final Top K           : {retrieval.retrieval_result.final_top_k}")
+                        self.log(f"Action Taken          : {crag_result.action_taken}")
+                        if grading:
+                            self.log(f"Relevant Docs         : {len(grading.relevant_docs)}")
+                            self.log(f"Irrelevant Docs       : {len(grading.irrelevant_docs)}")
+                            self.log(f"Relevance Ratio       : {grading.relevance_ratio:.3f}")
+                        self.log(f"Web Search Used       : {crag_result.web_search_used}")
+                        self.log(f"Web Search Docs       : {len(crag_result.web_search_docs)}")
+                        self.log(f"Graded Docs           : {len(crag_result.refined_docs)}")
+                        self.log(f"Compressed Docs       : {len(self.compressed_docs)}")
+                        self.log(f"Grading Latency       : {crag_result.grading_latency_ms:.1f}ms")
+                        self.log(f"Web Search Latency    : {crag_result.web_search_latency_ms:.1f}ms")
+                        self.log(f"CRAG Total Latency    : {crag_result.total_latency_ms:.1f}ms")
 
-                        decision = retrieval.retrieval_result.retrieval_decision
-
-                        self.log(f"Retrieval Confidence  : {decision.retrieval_confidence:.3f}")
-                        self.log(f"Sufficient Context    : {decision.sufficient_context}")
-                        self.log(f"Suggested Top K       : {decision.suggested_top_k}")
-
-                        self.log(
-                            f"Overall Confidence    : "
-                            f"{result.confidence.confidence.overall_score:.3f}"
-                        )
-
-                        self.log(
-                            f"Final Confidence      : "
-                            f"{result.confidence.confidence.confidence_level}"
-                        )
                         save_message(
                             role="user",
                             message=query,
@@ -767,14 +778,22 @@ class MedicalRAGPipeline:
                             "retrieved_docs": self.reranked_docs,
                             "compressed_docs": self.compressed_docs,
                             "answer": self.final_answer,
-                            "self_rag": self.self_rag_result.model_dump(mode="json"),
+                            "crag": {
+                                "action": crag_result.action_taken,
+                                "web_search_used": crag_result.web_search_used,
+                                "relevant_docs": len(grading.relevant_docs) if grading else 0,
+                                "irrelevant_docs": len(grading.irrelevant_docs) if grading else 0,
+                                "latency_ms": crag_result.total_latency_ms,
+                            },
                         }
 
                     except Exception as exc:
 
                         self.log(
-                             f"Self-RAG failed: {exc}"
+                             f"CRAG failed: {exc}, falling back to basic pipeline..."
                         )
+
+                        # ── Fallback: basic RAG pipeline ──
                         self.prepare_query(
                         f"""
                         Previous Conversation:
@@ -815,8 +834,9 @@ class MedicalRAGPipeline:
                             "retrieved_docs": self.reranked_docs,
                             "compressed_docs": self.compressed_docs,
                             "answer": self.final_answer,
-                            "fallback": True,
-                            "error": str(exc),}
+                            "fallback": "basic_pipeline",
+                            "error": str(exc),
+                        }
 
             # -----------------------------------
             # QUERY PIPELINE
@@ -945,9 +965,13 @@ class MedicalRAGPipeline:
                 "answer":
                 self.final_answer,
                 
-                "self_rag": (
-                    self.self_rag_result.model_dump(mode="json")
-                    if self.self_rag_result else None
+                "crag": (
+                    {
+                        "action": self.crag_result.action_taken,
+                        "web_search_used": self.crag_result.web_search_used,
+                        "latency_ms": self.crag_result.total_latency_ms,
+                    }
+                    if self.crag_result else None
                 )
             }
 
